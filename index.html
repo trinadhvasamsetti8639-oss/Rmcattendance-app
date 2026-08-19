@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Smart AI Attendance System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- MediaPipe FaceMesh & Camera Utility for Realtime Blink Detection -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+  <style>
+    .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-800 min-h-screen flex flex-col justify-between">
+
+  <!-- TOP HEADER -->
+  <header class="bg-indigo-700 text-white p-4 shadow-md text-center font-bold text-lg flex justify-between items-center">
+    <span>AI Attendance Hub</span>
+    <button id="logoutBtn" onclick="logout()" class="hidden text-xs bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg shadow">Logout</button>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="container mx-auto p-4 max-w-md flex-1">
+
+    <!-- 0. ROLE SELECTOR -->
+    <div id="roleView" class="glass p-6 rounded-2xl shadow-xl mt-8 text-center space-y-4">
+      <h2 class="text-xl font-bold text-indigo-900">Select Portal</h2>
+      <button onclick="showAdminLogin()" class="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl shadow-md">Administrator Portal</button>
+      <button onclick="showEmpLogin()" class="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl shadow-md">Employee Attendance Portal</button>
+      <button onclick="showDashboard()" class="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl shadow-md">Secretariat Live Dashboard</button>
+    </div>
+
+    <!-- 1. ADMIN LOGIN & DASHBOARD -->
+    <div id="adminLoginView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
+      <h2 class="text-xl font-bold text-indigo-900">Admin Authentication</h2>
+      <input type="text" id="adminUser" placeholder="Username (admin)" class="w-full p-3 border rounded-xl">
+      <input type="password" id="adminPass" placeholder="Password (Admin@9626)" class="w-full p-3 border rounded-xl">
+      <button onclick="loginAdmin()" class="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow">Login as Admin</button>
+      <button onclick="showHome()" class="w-full text-slate-500 text-sm">Back</button>
+    </div>
+
+    <div id="adminDashboardView" class="hidden space-y-4">
+      <div class="glass p-5 rounded-2xl shadow space-y-3">
+        <h3 class="font-bold text-indigo-900 border-b pb-2">Register Employee</h3>
+        <input type="text" id="regCfms" placeholder="CFMS ID" class="w-full p-2 border rounded-lg">
+        <input type="text" id="regName" placeholder="Full Name" class="w-full p-2 border rounded-lg">
+        <input type="text" id="regSec" placeholder="Secretariat Name" class="w-full p-2 border rounded-lg">
+        <button onclick="registerEmployee()" class="w-full py-2 bg-emerald-600 text-white font-semibold rounded-lg">Add Employee</button>
+      </div>
+
+      <div class="glass p-5 rounded-2xl shadow space-y-3">
+        <h3 class="font-bold text-indigo-900 border-b pb-2">Custom Geofencing Setting</h3>
+        <input type="text" id="geoSec" placeholder="Secretariat Name" class="w-full p-2 border rounded-lg">
+        <div class="grid grid-cols-2 gap-2">
+          <input type="number" step="any" id="geoLat" placeholder="Latitude" class="p-2 border rounded-lg">
+          <input type="number" step="any" id="geoLng" placeholder="Longitude" class="p-2 border rounded-lg">
+        </div>
+        <input type="number" id="geoRadius" placeholder="Allowed Radius (Meters e.g. 100)" class="w-full p-2 border rounded-lg">
+        <button onclick="fetchCurrentLocationForGeofence()" class="w-full py-2 bg-slate-700 text-white text-xs font-semibold rounded-lg">Use My Current GPS Position</button>
+        <button onclick="saveGeofence()" class="w-full py-2 bg-indigo-600 text-white font-semibold rounded-lg">Save Geofence</button>
+      </div>
+    </div>
+
+    <!-- 2. EMPLOYEE LOGIN & ATTENDANCE CAPTURE -->
+    <div id="empLoginView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
+      <h2 class="text-xl font-bold text-emerald-900">Employee Login</h2>
+      <input type="text" id="empCfms" placeholder="CFMS ID" class="w-full p-3 border rounded-xl">
+      <input type="password" id="empPass" placeholder="Default: Emp@123" class="w-full p-3 border rounded-xl">
+      <button onclick="loginEmployee()" class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl shadow">Login</button>
+      <button onclick="showHome()" class="w-full text-slate-500 text-sm">Back</button>
+    </div>
+
+    <div id="empCaptureView" class="hidden space-y-4">
+      <div class="glass p-4 rounded-2xl shadow text-center space-y-2">
+        <h3 id="empWelcome" class="font-bold text-lg text-emerald-900"></h3>
+        <p id="geoStatus" class="text-xs font-semibold text-slate-600">Verifying GPS Location...</p>
+      </div>
+
+      <!-- CAMERA & LIVENESS DETECTION VIEW -->
+      <div class="relative w-full aspect-square bg-black rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center">
+        <video id="webcam" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
+        <canvas id="overlayCanvas" class="hidden"></canvas>
+        <div id="aiPrompt" class="absolute bottom-3 bg-black/75 text-white text-xs px-3 py-1.5 rounded-full font-semibold border border-white/20">
+          Looking for single face...
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <button id="btnIn" onclick="punchAttendance('IN')" disabled class="py-3 bg-emerald-600 disabled:bg-slate-400 text-white font-bold rounded-xl shadow">Punch IN</button>
+        <button id="btnOut" onclick="punchAttendance('OUT')" disabled class="py-3 bg-red-600 disabled:bg-slate-400 text-white font-bold rounded-xl shadow">Punch OUT</button>
+      </div>
+    </div>
+
+    <!-- 3. LIVE REPORT DASHBOARD -->
+    <div id="dashboardView" class="hidden space-y-4">
+      <div class="glass p-4 rounded-2xl shadow space-y-3">
+        <div class="flex justify-between items-center">
+          <h2 class="font-bold text-lg text-blue-900">Secretariat Attendance</h2>
+          <button onclick="showHome()" class="text-xs bg-slate-200 px-2 py-1 rounded">Back</button>
+        </div>
+        <div class="flex gap-2">
+          <input type="text" id="dashFilterSec" placeholder="Filter by Secretariat" class="w-full p-2 text-sm border rounded-lg">
+          <button onclick="loadDashboardLogs()" class="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg">Fetch</button>
+        </div>
+      </div>
+
+      <div id="logsContainer" class="space-y-3"></div>
+    </div>
+
+  </main>
+
+  <footer class="text-center p-3 text-xs text-slate-400">
+    AI Real-Time Eye Blink Liveness & Geofencing Protected
+  </footer>
+
+  <!-- JAVASCRIPT APPLICATION LOGIC -->
+  <script>
+    // ================= CONFIGURATION =================
+    // Paste your deployed Google Apps Script Web App URL here:
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQOQuhcpFLtZl9hvwa9i2JRsxD02dbJNSfBmIWb4aeYTzjT8MBFCAFborqq_veYraQ/exec";
+
+    let currentUser = null;
+    let currentCoords = { lat: 0, lng: 0 };
+    let isGeofenceValid = false;
+    let livenessVerified = false;
+    let cameraInstance = null;
+    let capturedPhotoBase64 = null;
+
+    // View Navigation Helpers
+    function hideAll() {
+      ['roleView','adminLoginView','adminDashboardView','empLoginView','empCaptureView','dashboardView'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+      });
+      document.getElementById('logoutBtn').classList.add('hidden');
+    }
+    function showHome() { hideAll(); document.getElementById('roleView').classList.remove('hidden'); }
+    function showAdminLogin() { hideAll(); document.getElementById('adminLoginView').classList.remove('hidden'); }
+    function showEmpLogin() { hideAll(); document.getElementById('empLoginView').classList.remove('hidden'); }
+    function showDashboard() { hideAll(); document.getElementById('dashboardView').classList.remove('hidden'); loadDashboardLogs(); }
+
+    function logout() {
+      currentUser = null;
+      if (cameraInstance) cameraInstance.stop();
+      showHome();
+    }
+
+    // API Helper
+    async function apiCall(payload) {
+      const res = await fetch(SCRIPT_URL, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    }
+
+    // 1. ADMIN ACTIONS
+    async function loginAdmin() {
+      const u = document.getElementById('adminUser').value;
+      const p = document.getElementById('adminPass').value;
+      const res = await apiCall({ action: "admin_login", username: u, password: p });
+      if (res.success) {
+        hideAll();
+        document.getElementById('adminDashboardView').classList.remove('hidden');
+        document.getElementById('logoutBtn').classList.remove('hidden');
+      } else {
+        alert(res.message);
+      }
+    }
+
+    async function registerEmployee() {
+      const cfmsId = document.getElementById('regCfms').value;
+      const name = document.getElementById('regName').value;
+      const secretariat = document.getElementById('regSec').value;
+      if (!cfmsId || !name || !secretariat) return alert("Fill all details");
+      const res = await apiCall({ action: "register_employee", cfmsId, name, secretariat });
+      alert(res.message);
+      document.getElementById('regCfms').value = '';
+      document.getElementById('regName').value = '';
+    }
+
+    function fetchCurrentLocationForGeofence() {
+      navigator.geolocation.getCurrentPosition(pos => {
+        document.getElementById('geoLat').value = pos.coords.latitude;
+        document.getElementById('geoLng').value = pos.coords.longitude;
+      }, err => alert("Location permission required: " + err.message), { enableHighAccuracy: true });
+    }
+
+    async function saveGeofence() {
+      const secretariat = document.getElementById('geoSec').value;
+      const latitude = parseFloat(document.getElementById('geoLat').value);
+      const longitude = parseFloat(document.getElementById('geoLng').value);
+      const radius = parseFloat(document.getElementById('geoRadius').value);
+      if (!secretariat || !latitude || !longitude || !radius) return alert("Fill all geofence details");
+      const res = await apiCall({ action: "set_geofence", secretariat, latitude, longitude, radius });
+      alert(res.message);
+    }
+
+    // 2. EMPLOYEE ACTIONS & GEOFENCING
+    async function loginEmployee() {
+      const cfmsId = document.getElementById('empCfms').value;
+      const password = document.getElementById('empPass').value;
+      const res = await apiCall({ action: "emp_login", cfmsId, password });
+      if (res.success) {
+        currentUser = res.user;
+        hideAll();
+        document.getElementById('empCaptureView').classList.remove('hidden');
+        document.getElementById('logoutBtn').classList.remove('hidden');
+        document.getElementById('empWelcome').innerText = `${currentUser.name} (${currentUser.cfmsId})`;
+        verifyLocationAndInitCamera();
+      } else {
+        alert(res.message);
+      }
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; // Earth radius in meters
+      const φ1 = lat1 * Math.PI/180, φ2 = lat2 * Math.PI/180;
+      const Δφ = (lat2-lat1) * Math.PI/180, Δλ = (lon2-lon1) * Math.PI/180;
+      const a = Math.sin(Δφ/2)*Math.sin(Δφ/2) + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)*Math.sin(Δλ/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    async function verifyLocationAndInitCamera() {
+      const geoStatus = document.getElementById('geoStatus');
+      geoStatus.innerText = "Checking GPS Location...";
+
+      navigator.geolocation.getCurrentPosition(async pos => {
+        currentCoords.lat = pos.coords.latitude;
+        currentCoords.lng = pos.coords.longitude;
+
+        const res = await apiCall({ action: "get_geofence", secretariat: currentUser.secretariat });
+        if (res.success) {
+          const dist = calculateDistance(currentCoords.lat, currentCoords.lng, res.geofence.lat, res.geofence.lng);
+          if (dist <= res.geofence.radius) {
+            isGeofenceValid = true;
+            geoStatus.innerText = `Location Verified: Inside ${currentUser.secretariat} (${Math.round(dist)}m away)`;
+            geoStatus.className = "text-xs font-semibold text-emerald-600";
+            startAiLivenessTracking();
+          } else {
+            isGeofenceValid = false;
+            geoStatus.innerText = `Outside Geofence: ${Math.round(dist)}m away (Limit: ${res.geofence.radius}m)`;
+            geoStatus.className = "text-xs font-semibold text-red-600";
+            alert("You are outside your designated Secretariat geofence area!");
+          }
+        } else {
+          geoStatus.innerText = res.message;
+        }
+      }, err => {
+        geoStatus.innerText = "Error reading GPS: " + err.message;
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    }
+
+    // AI BLINK & LIVENESS DETECTION (MediaPipe FaceMesh)
+    function calculateEAR(top, bottom, left, right) {
+      const vertical = Math.hypot(top.x - bottom.x, top.y - bottom.y);
+      const horizontal = Math.hypot(left.x - right.x, left.y - right.y);
+      return vertical / horizontal;
+    }
+
+    let eyeClosed = false;
+    function startAiLivenessTracking() {
+      const videoElement = document.getElementById('webcam');
+      const prompt = document.getElementById('aiPrompt');
+
+      const faceMesh = new FaceMesh({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+      });
+
+      faceMesh.setOptions({
+        maxNumFaces: 2,
+        refineLandmarks: true,
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.7
+      });
+
+      faceMesh.onResults(results => {
+        if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+          prompt.innerText = "❌ No Face Detected. Look at Camera";
+          prompt.className = "absolute bottom-3 bg-red-600 text-white text-xs px-3 py-1.5 rounded-full font-semibold";
+          return;
+        }
+        if (results.multiFaceLandmarks.length > 1) {
+          prompt.innerText = "❌ Multiple Faces Detected! Only 1 person allowed";
+          prompt.className = "absolute bottom-3 bg-red-600 text-white text-xs px-3 py-1.5 rounded-full font-semibold";
+          return;
+        }
+
+        const landmarks = results.multiFaceLandmarks[0];
+        // Eye landmark indexes
+        const leftEAR = calculateEAR(landmarks[159], landmarks[145], landmarks[33], landmarks[133]);
+        const rightEAR = calculateEAR(landmarks[386], landmarks[374], landmarks[362], landmarks[263]);
+        const avgEAR = (leftEAR + rightEAR) / 2;
+
+        if (avgEAR < 0.16) {
+          eyeClosed = true;
+        } else if (avgEAR > 0.22 && eyeClosed) {
+          // Blink Completed!
+          livenessVerified = true;
+          prompt.innerText = " Blink Verified! Ready to Punch";
+          prompt.className = "absolute bottom-3 bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-full font-semibold";
+          captureFrame(videoElement);
+          if (isGeofenceValid) {
+            document.getElementById('btnIn').disabled = false;
+            document.getElementById('btnOut').disabled = false;
+          }
+        } else if (!livenessVerified) {
+          prompt.innerText = " Please Blink Your Eyes to Verify Liveness";
+          prompt.className = "absolute bottom-3 bg-amber-600 text-white text-xs px-3 py-1.5 rounded-full font-semibold";
+        }
+      });
+
+      cameraInstance = new Camera(videoElement, {
+        onFrame: async () => {
+          await faceMesh.send({ image: videoElement });
+        },
+        width: 480,
+        height: 480
+      });
+      cameraInstance.start();
+    }
+
+    function captureFrame(video) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 480;
+      canvas.height = 480;
+      const ctx = canvas.getContext('2d');
+      ctx.translate(480, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, 480, 480);
+      capturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
+    }
+
+    async function punchAttendance(type) {
+      if (!livenessVerified || !capturedPhotoBase64) return alert("Liveness verification (eye blink) required.");
+      if (!isGeofenceValid) return alert("Geofence validation failed.");
+
+      const btn = type === 'IN' ? document.getElementById('btnIn') : document.getElementById('btnOut');
+      btn.innerText = "Submitting...";
+      btn.disabled = true;
+
+      const payload = {
+        action: "mark_attendance",
+        cfmsId: currentUser.cfmsId,
+        name: currentUser.name,
+        secretariat: currentUser.secretariat,
+        type: type,
+        status: "PRESENT",
+        lat: currentCoords.lat,
+        lng: currentCoords.lng,
+        photoBase64: capturedPhotoBase64
+      };
+
+      const res = await apiCall(payload);
+      alert(res.message);
+      btn.innerText = `Punch ${type}`;
+      btn.disabled = false;
+    }
+
+    // 3. DASHBOARD LOGS
+    async function loadDashboardLogs() {
+      const sec = document.getElementById('dashFilterSec').value;
+      const container = document.getElementById('logsContainer');
+      container.innerHTML = "<p class='text-center text-white text-xs'>Loading logs...</p>";
+
+      const res = await apiCall({ action: "get_dashboard_logs", secretariat: sec });
+      if (res.success && res.logs.length > 0) {
+        container.innerHTML = res.logs.map(log => `
+          <div class="glass p-3 rounded-xl shadow flex items-center gap-3">
+            <img src="${log.photo}" class="w-16 h-16 rounded-lg object-cover bg-slate-200 border" alt="Capture">
+            <div class="text-xs space-y-1 flex-1">
+              <div class="flex justify-between font-bold text-slate-900">
+                <span>${log.name} (${log.cfmsId})</span>
+                <span class="${log.type === 'IN' ? 'text-emerald-600' : 'text-red-600'}">${log.type}</span>
+              </div>
+              <p class="text-slate-600">${log.secretariat}</p>
+              <p class="text-slate-400">${log.date} at ${log.time}</p>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        container.innerHTML = "<p class='text-center text-white text-xs'>No attendance records found.</p>";
+      }
+    }
+  </script>
+</body>
+</html>
