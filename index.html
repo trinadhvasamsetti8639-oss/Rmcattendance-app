@@ -15,7 +15,7 @@
 
   <header class="bg-indigo-700 text-white p-4 shadow-md text-center font-bold text-lg flex justify-between items-center">
     <span>AI Attendance Hub</span>
-    <button id="logoutBtn" onclick="logout()" class="hidden text-xs bg-red-500 px-3 py-1.5 rounded-lg shadow">Logout</button>
+    <button id="logoutBtn" onclick="logout()" class="hidden text-xs bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg shadow transition">Logout</button>
   </header>
 
   <main class="container mx-auto p-4 max-w-md flex-1">
@@ -23,9 +23,9 @@
     <!-- ROLE SELECTOR -->
     <div id="roleView" class="glass p-6 rounded-2xl shadow-xl mt-8 text-center space-y-4">
       <h2 class="text-xl font-bold text-indigo-900">Select Portal</h2>
-      <button onclick="showRegistration()" class="w-full py-3 bg-amber-500 text-white font-semibold rounded-xl shadow-md">Employee Self Registration</button>
-      <button onclick="showEmpLogin()" class="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl shadow-md">Mark Face Attendance</button>
-      <button onclick="showAdminLogin()" class="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl shadow-md">Admin / Requests Portal</button>
+      <button onclick="showRegistration()" class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl shadow-md transition">Employee Self Registration</button>
+      <button onclick="showEmpLogin()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-md transition">Mark Face Attendance</button>
+      <button onclick="showAdminLogin()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md transition">Admin / Requests Portal</button>
     </div>
 
     <!-- SELF REGISTRATION VIEW -->
@@ -33,16 +33,16 @@
       <h2 class="text-xl font-bold text-amber-700">Self Registration</h2>
       
       <div class="flex gap-2">
-        <input type="text" id="regSecNo" placeholder="Enter Secretariat No" class="w-full p-2 border rounded-lg">
-        <button onclick="fetchPosts(event)" class="bg-amber-500 hover:bg-amber-600 text-white px-4 rounded-lg font-bold">Find</button>
+        <input type="text" id="regSecNo" placeholder="Enter Secretariat No" class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-amber-400">
+        <button onclick="fetchPosts(event)" class="bg-amber-500 hover:bg-amber-600 text-white px-4 rounded-lg font-bold transition">Find</button>
       </div>
 
       <div id="postSelection" class="hidden space-y-2 mt-2 bg-slate-50 p-3 rounded-lg border">
         <input type="text" id="r_secName" readonly class="w-full p-2 bg-transparent font-bold text-indigo-900 border-b outline-none" placeholder="Secretariat Name">
-        <select id="r_postSelect" class="w-full p-2 border rounded-lg bg-white mt-2">
+        <select id="r_postSelect" class="w-full p-2 border rounded-lg bg-white mt-2 outline-none focus:ring-2 focus:ring-amber-400">
           <option value="">-- Select Post Name --</option>
         </select>
-        <button onclick="fetchEmpData(event)" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg mt-2 shadow">Fetch Employee Details</button>
+        <button onclick="fetchEmpData(event)" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg mt-2 shadow transition">Fetch Employee Details</button>
       </div>
 
       <div id="regDetails" class="hidden space-y-2 text-sm mt-4 border-t pt-4">
@@ -50,31 +50,31 @@
         <input type="text" id="r_cfms" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="CFMS ID">
         <input type="text" id="r_phone" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Phone No">
         
-        <textarea id="r_request" placeholder="Employee Request: Describe any corrections needed for the above data..." class="w-full p-2 border rounded-lg mt-2 h-16"></textarea>
+        <textarea id="r_request" placeholder="Employee Request: Describe any corrections needed for the above data..." class="w-full p-2 border rounded-lg mt-2 h-16 outline-none focus:ring-2 focus:ring-amber-400"></textarea>
         
         <div class="relative w-full aspect-square bg-black rounded-xl overflow-hidden mt-2 flex items-center justify-center">
           <video id="regWebcam" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
           <div id="regPrompt" class="absolute bottom-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-semibold">Align face for Registration</div>
         </div>
-        <button onclick="registerWithFace()" class="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl mt-2 shadow">Capture Face & Register</button>
+        <button onclick="registerWithFace()" class="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl mt-2 shadow transition">Capture Face & Register</button>
       </div>
-      <button onclick="showHome()" class="w-full text-slate-500 text-sm font-medium mt-2">Cancel & Back</button>
+      <button onclick="showHome()" class="w-full text-slate-500 hover:text-slate-700 text-sm font-medium mt-2 transition">Cancel & Back</button>
     </div>
 
     <!-- ADMIN VIEW -->
     <div id="adminLoginView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
       <h2 class="text-xl font-bold text-indigo-900">Admin Authentication</h2>
-      <input type="text" id="adminUser" placeholder="Username (admin)" class="w-full p-3 border rounded-xl">
-      <input type="password" id="adminPass" placeholder="Password (Admin@9626)" class="w-full p-3 border rounded-xl">
-      <button onclick="loginAdmin()" class="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow">Login</button>
-      <button onclick="showHome()" class="w-full text-slate-500 text-sm font-medium">Back</button>
+      <input type="text" id="adminUser" placeholder="Username (admin)" class="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-400">
+      <input type="password" id="adminPass" placeholder="Password" class="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-400">
+      <button onclick="loginAdmin()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow transition">Login</button>
+      <button onclick="showHome()" class="w-full text-slate-500 hover:text-slate-700 text-sm font-medium transition">Back</button>
     </div>
 
     <div id="adminDashboardView" class="hidden space-y-4">
       <!-- Requests -->
       <div class="glass p-5 rounded-2xl shadow space-y-3">
         <h3 class="font-bold text-indigo-900 border-b pb-2">Pending Employee Data Requests</h3>
-        <button onclick="loadRequests()" class="w-full py-2 bg-slate-200 hover:bg-slate-300 rounded-lg text-sm mb-2 font-semibold">Refresh Requests</button>
+        <button onclick="loadRequests()" class="w-full py-2 bg-slate-200 hover:bg-slate-300 rounded-lg text-sm mb-2 font-semibold transition">Refresh Requests</button>
         <div id="requestsContainer" class="space-y-3 text-sm max-h-48 overflow-y-auto"></div>
       </div>
       <!-- Geofence -->
@@ -86,18 +86,18 @@
           <input type="number" step="any" id="geoLng" placeholder="Longitude" class="p-2 border rounded-lg text-sm">
         </div>
         <input type="number" id="geoRadius" placeholder="Allowed Radius (Meters e.g. 100)" class="w-full p-2 border rounded-lg">
-        <button onclick="fetchCurrentLocationForGeofence()" class="w-full py-2 bg-slate-700 text-white text-xs font-semibold rounded-lg">Use My Current GPS Position</button>
-        <button onclick="saveGeofence()" class="w-full py-2 bg-indigo-600 text-white font-semibold rounded-lg">Save Geofence</button>
+        <button onclick="fetchCurrentLocationForGeofence()" class="w-full py-2 bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition">Use My Current GPS Position</button>
+        <button onclick="saveGeofence()" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition">Save Geofence</button>
       </div>
     </div>
 
     <!-- EMPLOYEE ATTENDANCE VIEW -->
     <div id="empLoginView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
       <h2 class="text-xl font-bold text-emerald-900">Employee Portal</h2>
-      <input type="text" id="empCfms" placeholder="CFMS ID" class="w-full p-3 border rounded-xl">
-      <input type="password" id="empPass" placeholder="Password (Default: Emp@123)" class="w-full p-3 border rounded-xl">
-      <button onclick="loginEmployee()" class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl shadow">Login</button>
-      <button onclick="showHome()" class="w-full text-slate-500 text-sm font-medium">Back</button>
+      <input type="text" id="empCfms" placeholder="CFMS ID" class="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-400">
+      <input type="password" id="empPass" placeholder="Password" class="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-400">
+      <button onclick="loginEmployee()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow transition">Login</button>
+      <button onclick="showHome()" class="w-full text-slate-500 hover:text-slate-700 text-sm font-medium transition">Back</button>
     </div>
 
     <div id="empCaptureView" class="hidden space-y-4">
@@ -112,8 +112,8 @@
       </div>
 
       <div class="grid grid-cols-2 gap-3">
-        <button id="btnIn" onclick="punchAttendance('IN')" disabled class="py-3 bg-emerald-600 disabled:bg-slate-400 text-white font-bold rounded-xl shadow">Punch IN</button>
-        <button id="btnOut" onclick="punchAttendance('OUT')" disabled class="py-3 bg-red-600 disabled:bg-slate-400 text-white font-bold rounded-xl shadow">Punch OUT</button>
+        <button id="btnIn" onclick="punchAttendance('IN')" disabled class="py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white font-bold rounded-xl shadow transition">Punch IN</button>
+        <button id="btnOut" onclick="punchAttendance('OUT')" disabled class="py-3 bg-red-600 hover:bg-red-700 disabled:bg-slate-400 text-white font-bold rounded-xl shadow transition">Punch OUT</button>
       </div>
     </div>
 
@@ -163,7 +163,7 @@
       if (regVideo.srcObject) { regVideo.srcObject.getTracks().forEach(t => t.stop()); regVideo.srcObject = null; }
     }
 
-    // REGISTRATION
+    // --- REGISTRATION LOGIC ---
     async function fetchPosts(event) {
       const secNo = document.getElementById('regSecNo').value.trim();
       if (!secNo) return alert("Please enter a Secretariat No");
@@ -177,25 +177,34 @@
           const select = document.getElementById('r_postSelect');
           select.innerHTML = '<option value="">-- Select Post Name --</option>' + res.posts.map(p => `<option value="${p}">${p}</option>`).join('');
         } else alert(res.message);
-      } catch (error) { alert("Connection Error."); } 
+      } catch (error) { alert("Network Connection Error while finding Secretariat."); } 
       finally { btn.innerText = txt; btn.disabled = false; }
     }
 
-    // UPDATED FUNCTION: Handles Fetch and Camera Permissions separately
+    // REWRITTEN: Forces Camera Permission FIRST, then Fetches Data.
     async function fetchEmpData(event) {
       const secNo = document.getElementById('regSecNo').value.trim();
       const postName = document.getElementById('r_postSelect').value;
-      
-      if (!secNo || !postName) return alert("Select a Post Name.");
+      if (!secNo || !postName) return alert("Please select a Post Name.");
       
       const btn = event.target; 
       const txt = btn.innerText; 
-      btn.innerText = "Fetching..."; 
+      btn.innerText = "Requesting Camera..."; 
       btn.disabled = true;
 
-      let isDataFetched = false;
+      let stream = null;
 
-      // STEP 1: Fetch the employee data
+      // STEP 1: Ask for Camera Permission (Fixes Mobile Blocking Issue)
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+      } catch (camError) {
+        btn.innerText = txt; 
+        btn.disabled = false;
+        return alert("📸 CAMERA PERMISSION DENIED!\n\nYour mobile phone or browser is blocking camera access. Please go to your browser settings, or click the lock icon in the address bar, and ALLOW the camera for this website.");
+      }
+
+      // STEP 2: Fetch the data
+      btn.innerText = "Fetching Data...";
       try {
         const response = await fetch(SCRIPT_URL, { 
           method: "POST", 
@@ -204,34 +213,34 @@
           redirect: "follow" 
         });
         
-        const res = await response.json();
+        // Convert response to text first to safely check for HTML errors from Google
+        const rawText = await response.text();
+        let res;
+        try {
+          res = JSON.parse(rawText);
+        } catch (parseError) {
+          throw new Error("Server returned an invalid response. Ensure Apps Script is deployed to 'Anyone' as a New Version.");
+        }
         
         if (res.success) {
-          isDataFetched = true;
           document.getElementById('regDetails').classList.remove('hidden');
           document.getElementById('r_candName').value = res.data.candidateName;
           document.getElementById('r_cfms').value = res.data.cfmsId;
           document.getElementById('r_phone').value = res.data.phone;
+          
+          // Attach camera stream to video element
+          document.getElementById('regWebcam').srcObject = stream;
         } else {
+          // If employee not found, stop the camera
+          if (stream) stream.getTracks().forEach(t => t.stop());
           alert(res.message);
         }
       } catch (error) { 
-        console.error("Data Fetch Error:", error);
-        alert("Error fetching employee details from database. Check your internet connection."); 
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        alert("🌐 DATABASE ERROR:\n\n" + error.message); 
       } finally { 
         btn.innerText = txt; 
         btn.disabled = false; 
-      }
-
-      // STEP 2: Only try to start the camera if data fetch was successful
-      if (isDataFetched) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          document.getElementById('regWebcam').srcObject = stream;
-        } catch (camError) {
-          console.error("Camera Error:", camError);
-          alert("Employee data fetched successfully, but the browser blocked camera access. Please click the lock icon next to your URL bar and allow Camera permissions to capture the registration photo.");
-        }
       }
     }
 
@@ -253,7 +262,7 @@
       } catch (e) { alert("Registration network error."); }
     }
 
-    // ADMIN
+    // --- ADMIN LOGIC ---
     async function loginAdmin() {
       const u = document.getElementById('adminUser').value, p = document.getElementById('adminPass').value;
       try {
@@ -270,7 +279,7 @@
         const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "get_requests" }), redirect: "follow" });
         const res = await response.json();
         if (res.success && res.requests.length > 0) {
-          container.innerHTML = res.requests.map(r => `<div class="p-3 bg-white border border-slate-200 rounded-lg shadow-sm"><b class="text-indigo-900">${r.name} (${r.cfmsId})</b><p class="text-slate-600 mt-1 text-xs"><b>Requested Edit:</b> <i>${r.request}</i></p><button onclick="resolveRequest(${r.rowIdx})" class="mt-2 text-xs bg-indigo-600 text-white px-3 py-1.5 rounded">Mark Resolved</button></div>`).join('');
+          container.innerHTML = res.requests.map(r => `<div class="p-3 bg-white border border-slate-200 rounded-lg shadow-sm"><b class="text-indigo-900">${r.name} (${r.cfmsId})</b><p class="text-slate-600 mt-1 text-xs"><b>Requested Edit:</b> <i>${r.request}</i></p><button onclick="resolveRequest(${r.rowIdx})" class="mt-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded transition">Mark Resolved</button></div>`).join('');
         } else container.innerHTML = "<p class='text-slate-500'>No pending requests found.</p>";
       } catch (err) { container.innerHTML = "<p class='text-red-500'>Failed to load.</p>"; }
     }
@@ -287,7 +296,7 @@
       alert((await response.json()).message);
     }
 
-    // EMPLOYEE ATTENDANCE
+    // --- EMPLOYEE ATTENDANCE LOGIC ---
     async function loginEmployee() {
       try {
         const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "emp_login", cfmsId: document.getElementById('empCfms').value, password: document.getElementById('empPass').value }), redirect: "follow" });
