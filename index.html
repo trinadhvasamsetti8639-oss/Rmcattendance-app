@@ -181,23 +181,58 @@
       finally { btn.innerText = txt; btn.disabled = false; }
     }
 
+    // UPDATED FUNCTION: Handles Fetch and Camera Permissions separately
     async function fetchEmpData(event) {
-      const secNo = document.getElementById('regSecNo').value.trim(), postName = document.getElementById('r_postSelect').value;
+      const secNo = document.getElementById('regSecNo').value.trim();
+      const postName = document.getElementById('r_postSelect').value;
+      
       if (!secNo || !postName) return alert("Select a Post Name.");
-      const btn = event.target; const txt = btn.innerText; btn.innerText = "Fetching..."; btn.disabled = true;
+      
+      const btn = event.target; 
+      const txt = btn.innerText; 
+      btn.innerText = "Fetching..."; 
+      btn.disabled = true;
+
+      let isDataFetched = false;
+
+      // STEP 1: Fetch the employee data
       try {
-        const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "fetch_emp_data", secretariatNo: secNo, postName: postName }), redirect: "follow" });
+        const response = await fetch(SCRIPT_URL, { 
+          method: "POST", 
+          headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+          body: JSON.stringify({ action: "fetch_emp_data", secretariatNo: secNo, postName: postName }), 
+          redirect: "follow" 
+        });
+        
         const res = await response.json();
+        
         if (res.success) {
+          isDataFetched = true;
           document.getElementById('regDetails').classList.remove('hidden');
           document.getElementById('r_candName').value = res.data.candidateName;
           document.getElementById('r_cfms').value = res.data.cfmsId;
           document.getElementById('r_phone').value = res.data.phone;
+        } else {
+          alert(res.message);
+        }
+      } catch (error) { 
+        console.error("Data Fetch Error:", error);
+        alert("Error fetching employee details from database. Check your internet connection."); 
+      } finally { 
+        btn.innerText = txt; 
+        btn.disabled = false; 
+      }
+
+      // STEP 2: Only try to start the camera if data fetch was successful
+      if (isDataFetched) {
+        try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true });
           document.getElementById('regWebcam').srcObject = stream;
-        } else alert(res.message);
-      } catch (error) { alert("Error fetching details."); } 
-      finally { btn.innerText = txt; btn.disabled = false; }
+        } catch (camError) {
+          console.error("Camera Error:", camError);
+          alert("Employee data fetched successfully, but the browser blocked camera access. Please click the lock icon next to your URL bar and allow Camera permissions to capture the registration photo.");
+        }
+      }
     }
 
     async function registerWithFace() {
