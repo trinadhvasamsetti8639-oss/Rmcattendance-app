@@ -6,29 +6,21 @@
   <title>AI Face Attendance System</title>
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- MediaPipe FaceMesh (Liveness / Blinking) -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-  
-  <!-- Face-API.js (Face Recognition & Matching) -->
   <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
-
-  <style>
-    .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
-  </style>
+  <style>.glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }</style>
 </head>
 <body class="bg-slate-900 text-slate-800 min-h-screen flex flex-col justify-between">
 
-  <!-- TOP HEADER -->
   <header class="bg-indigo-700 text-white p-4 shadow-md text-center font-bold text-lg flex justify-between items-center">
     <span>AI Attendance Hub</span>
     <button id="logoutBtn" onclick="logout()" class="hidden text-xs bg-red-500 px-3 py-1.5 rounded-lg shadow">Logout</button>
   </header>
 
-  <!-- MAIN CONTAINER -->
   <main class="container mx-auto p-4 max-w-md flex-1">
 
-    <!-- 0. ROLE SELECTOR -->
+    <!-- ROLE SELECTOR -->
     <div id="roleView" class="glass p-6 rounded-2xl shadow-xl mt-8 text-center space-y-4">
       <h2 class="text-xl font-bold text-indigo-900">Select Portal</h2>
       <button onclick="showRegistration()" class="w-full py-3 bg-amber-500 text-white font-semibold rounded-xl shadow-md">Employee Self Registration</button>
@@ -36,18 +28,24 @@
       <button onclick="showAdminLogin()" class="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl shadow-md">Admin / Requests Portal</button>
     </div>
 
-    <!-- 1. SELF REGISTRATION VIEW -->
+    <!-- SELF REGISTRATION VIEW -->
     <div id="registrationView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
       <h2 class="text-xl font-bold text-amber-700">Self Registration</h2>
       
       <div class="flex gap-2">
         <input type="text" id="regSecNo" placeholder="Enter Secretariat No" class="w-full p-2 border rounded-lg">
-        <button onclick="fetchEmpData(event)" class="bg-amber-500 text-white px-4 rounded-lg font-bold">Fetch</button>
+        <button onclick="fetchPosts(event)" class="bg-amber-500 hover:bg-amber-600 text-white px-4 rounded-lg font-bold">Find</button>
       </div>
 
-      <div id="regDetails" class="hidden space-y-2 text-sm">
-        <input type="text" id="r_secName" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Secretariat Name">
-        <input type="text" id="r_postName" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Post Name">
+      <div id="postSelection" class="hidden space-y-2 mt-2 bg-slate-50 p-3 rounded-lg border">
+        <input type="text" id="r_secName" readonly class="w-full p-2 bg-transparent font-bold text-indigo-900 border-b outline-none" placeholder="Secretariat Name">
+        <select id="r_postSelect" class="w-full p-2 border rounded-lg bg-white mt-2">
+          <option value="">-- Select Post Name --</option>
+        </select>
+        <button onclick="fetchEmpData(event)" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg mt-2 shadow">Fetch Employee Details</button>
+      </div>
+
+      <div id="regDetails" class="hidden space-y-2 text-sm mt-4 border-t pt-4">
         <input type="text" id="r_candName" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Candidate Name">
         <input type="text" id="r_cfms" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="CFMS ID">
         <input type="text" id="r_phone" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Phone No">
@@ -58,13 +56,12 @@
           <video id="regWebcam" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
           <div id="regPrompt" class="absolute bottom-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-semibold">Align face for Registration</div>
         </div>
-
-        <button onclick="registerWithFace()" class="w-full py-3 bg-amber-600 text-white font-bold rounded-xl mt-2 shadow">Capture Face & Register</button>
+        <button onclick="registerWithFace()" class="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl mt-2 shadow">Capture Face & Register</button>
       </div>
-      <button onclick="showHome()" class="w-full text-slate-500 text-sm font-medium">Back to Home</button>
+      <button onclick="showHome()" class="w-full text-slate-500 text-sm font-medium mt-2">Cancel & Back</button>
     </div>
 
-    <!-- 2. ADMIN LOGIN & REQUESTS -->
+    <!-- ADMIN VIEW -->
     <div id="adminLoginView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
       <h2 class="text-xl font-bold text-indigo-900">Admin Authentication</h2>
       <input type="text" id="adminUser" placeholder="Username (admin)" class="w-full p-3 border rounded-xl">
@@ -74,19 +71,32 @@
     </div>
 
     <div id="adminDashboardView" class="hidden space-y-4">
+      <!-- Requests -->
       <div class="glass p-5 rounded-2xl shadow space-y-3">
         <h3 class="font-bold text-indigo-900 border-b pb-2">Pending Employee Data Requests</h3>
-        <button onclick="loadRequests()" class="w-full py-2 bg-slate-200 hover:bg-slate-300 rounded-lg text-sm mb-2 font-semibold transition">Refresh Requests</button>
-        <div id="requestsContainer" class="space-y-3 text-sm max-h-80 overflow-y-auto"></div>
+        <button onclick="loadRequests()" class="w-full py-2 bg-slate-200 hover:bg-slate-300 rounded-lg text-sm mb-2 font-semibold">Refresh Requests</button>
+        <div id="requestsContainer" class="space-y-3 text-sm max-h-48 overflow-y-auto"></div>
+      </div>
+      <!-- Geofence -->
+      <div class="glass p-5 rounded-2xl shadow space-y-3">
+        <h3 class="font-bold text-indigo-900 border-b pb-2">Custom Geofencing Setting</h3>
+        <input type="text" id="geoSec" placeholder="Secretariat Name" class="w-full p-2 border rounded-lg">
+        <div class="grid grid-cols-2 gap-2">
+          <input type="number" step="any" id="geoLat" placeholder="Latitude" class="p-2 border rounded-lg text-sm">
+          <input type="number" step="any" id="geoLng" placeholder="Longitude" class="p-2 border rounded-lg text-sm">
+        </div>
+        <input type="number" id="geoRadius" placeholder="Allowed Radius (Meters e.g. 100)" class="w-full p-2 border rounded-lg">
+        <button onclick="fetchCurrentLocationForGeofence()" class="w-full py-2 bg-slate-700 text-white text-xs font-semibold rounded-lg">Use My Current GPS Position</button>
+        <button onclick="saveGeofence()" class="w-full py-2 bg-indigo-600 text-white font-semibold rounded-lg">Save Geofence</button>
       </div>
     </div>
 
-    <!-- 3. EMPLOYEE LOGIN & ATTENDANCE CAPTURE -->
+    <!-- EMPLOYEE ATTENDANCE VIEW -->
     <div id="empLoginView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
       <h2 class="text-xl font-bold text-emerald-900">Employee Portal</h2>
       <input type="text" id="empCfms" placeholder="CFMS ID" class="w-full p-3 border rounded-xl">
       <input type="password" id="empPass" placeholder="Password (Default: Emp@123)" class="w-full p-3 border rounded-xl">
-      <button onclick="loginEmployee()" class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl shadow">Login for Attendance</button>
+      <button onclick="loginEmployee()" class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl shadow">Login</button>
       <button onclick="showHome()" class="w-full text-slate-500 text-sm font-medium">Back</button>
     </div>
 
@@ -98,14 +108,12 @@
 
       <div class="relative w-full aspect-square bg-black rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center">
         <video id="webcam" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
-        <div id="aiPrompt" class="absolute bottom-3 bg-black/75 text-white text-xs px-3 py-1.5 rounded-full font-semibold border border-white/20">
-          Initializing AI Engines...
-        </div>
+        <div id="aiPrompt" class="absolute bottom-3 bg-black/75 text-white text-xs px-3 py-1.5 rounded-full font-semibold border border-white/20">Initializing AI Engines...</div>
       </div>
 
       <div class="grid grid-cols-2 gap-3">
-        <button id="btnIn" onclick="punchAttendance('IN')" disabled class="py-3 bg-emerald-600 disabled:bg-slate-400 text-white font-bold rounded-xl shadow transition">Punch IN</button>
-        <button id="btnOut" onclick="punchAttendance('OUT')" disabled class="py-3 bg-red-600 disabled:bg-slate-400 text-white font-bold rounded-xl shadow transition">Punch OUT</button>
+        <button id="btnIn" onclick="punchAttendance('IN')" disabled class="py-3 bg-emerald-600 disabled:bg-slate-400 text-white font-bold rounded-xl shadow">Punch IN</button>
+        <button id="btnOut" onclick="punchAttendance('OUT')" disabled class="py-3 bg-red-600 disabled:bg-slate-400 text-white font-bold rounded-xl shadow">Punch OUT</button>
       </div>
     </div>
 
@@ -115,26 +123,17 @@
     AI Real-Time Eye Blink Liveness & Geofencing Protected
   </footer>
 
-  <!-- ================= JAVASCRIPT APPLICATION LOGIC ================= -->
   <script>
-    // ⚠️ REPLACE THIS WITH YOUR NEW APPS SCRIPT DEPLOYMENT URL
-    const SCRIPT_URL = "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE";
+    // ⚠️ UPDATE THIS LINK ⚠️
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyQlzUKPlRoeq30oDoBjYZW_8d_y6oDM_6bNTFNrYhoIfVg-mUVO0duAACy_K9Cfruv/exec";
 
-    // Application State Variables
-    let currentUser = null;
-    let cameraInstance = null;
-    let regCameraInstance = null;
-    let modelsLoaded = false;
-    let livenessVerified = false;
-    let currentCoords = { lat: 0, lng: 0 };
-    let capturedPhotoBase64 = null;
+    let currentUser = null, cameraInstance = null, modelsLoaded = false, livenessVerified = false;
+    let currentCoords = { lat: 0, lng: 0 }, isGeofenceValid = false, capturedPhotoBase64 = null;
 
-    // --- Face API Initialization ---
     async function initFaceAPI() {
       if (modelsLoaded) return;
       const prompt = document.getElementById('aiPrompt');
       if (prompt) prompt.innerText = "Downloading Face Models (Once)...";
-      
       const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
       try {
         await Promise.all([
@@ -144,361 +143,185 @@
         ]);
         modelsLoaded = true;
         if (prompt) prompt.innerText = "AI Models Ready";
-      } catch (err) {
-        alert("Error loading AI models. Check internet connection.");
-        console.error(err);
-      }
+      } catch (err) { alert("Error loading AI models."); }
     }
 
-    // --- Navigation Helpers ---
     function hideAll() {
-      ['roleView','registrationView','adminLoginView','adminDashboardView','empLoginView','empCaptureView'].forEach(id => {
-        document.getElementById(id).classList.add('hidden');
-      });
+      ['roleView','registrationView','adminLoginView','adminDashboardView','empLoginView','empCaptureView'].forEach(id => document.getElementById(id).classList.add('hidden'));
       document.getElementById('logoutBtn').classList.add('hidden');
     }
 
-    function showHome() { 
-      hideAll(); 
-      document.getElementById('roleView').classList.remove('hidden'); 
-      stopCameras();
-    }
-    
+    function showHome() { hideAll(); document.getElementById('roleView').classList.remove('hidden'); stopCameras(); }
     function showAdminLogin() { hideAll(); document.getElementById('adminLoginView').classList.remove('hidden'); }
-    
-    function showEmpLogin() { 
-      hideAll(); 
-      document.getElementById('empLoginView').classList.remove('hidden'); 
-      initFaceAPI(); 
-    }
-    
-    function showRegistration() {
-      hideAll(); 
-      document.getElementById('registrationView').classList.remove('hidden'); 
-      initFaceAPI();
-    }
-
-    function logout() {
-      currentUser = null;
-      stopCameras();
-      showHome();
-    }
+    function showEmpLogin() { hideAll(); document.getElementById('empLoginView').classList.remove('hidden'); initFaceAPI(); }
+    function showRegistration() { hideAll(); document.getElementById('registrationView').classList.remove('hidden'); initFaceAPI(); }
+    function logout() { currentUser = null; stopCameras(); showHome(); }
 
     function stopCameras() {
       if (cameraInstance) { cameraInstance.stop(); cameraInstance = null; }
       const regVideo = document.getElementById('regWebcam');
-      if (regVideo.srcObject) {
-        regVideo.srcObject.getTracks().forEach(track => track.stop());
-        regVideo.srcObject = null;
-      }
+      if (regVideo.srcObject) { regVideo.srcObject.getTracks().forEach(t => t.stop()); regVideo.srcObject = null; }
     }
 
-    // --- MODULE 1: Registration with Robust Fetch Fix ---
-    async function fetchEmpData(event) {
+    // REGISTRATION
+    async function fetchPosts(event) {
       const secNo = document.getElementById('regSecNo').value.trim();
       if (!secNo) return alert("Please enter a Secretariat No");
-      
-      const fetchButton = event.target;
-      const originalText = fetchButton.innerText;
-      fetchButton.innerText = "Fetching...";
-      fetchButton.disabled = true;
-
+      const btn = event.target; const txt = btn.innerText; btn.innerText = "Finding..."; btn.disabled = true;
       try {
-        const response = await fetch(SCRIPT_URL, { 
-          method: "POST", 
-          headers: { "Content-Type": "text/plain;charset=utf-8" }, // Prevents CORS preflight blocking
-          body: JSON.stringify({ action: "fetch_emp_data", secretariatNo: secNo }),
-          redirect: "follow" // Crucial for Apps Script redirects
-        });
-        
+        const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "fetch_posts", secretariatNo: secNo }), redirect: "follow" });
         const res = await response.json();
-        
+        if (res.success) {
+          document.getElementById('postSelection').classList.remove('hidden'); document.getElementById('regDetails').classList.add('hidden');
+          document.getElementById('r_secName').value = res.secName;
+          const select = document.getElementById('r_postSelect');
+          select.innerHTML = '<option value="">-- Select Post Name --</option>' + res.posts.map(p => `<option value="${p}">${p}</option>`).join('');
+        } else alert(res.message);
+      } catch (error) { alert("Connection Error."); } 
+      finally { btn.innerText = txt; btn.disabled = false; }
+    }
+
+    async function fetchEmpData(event) {
+      const secNo = document.getElementById('regSecNo').value.trim(), postName = document.getElementById('r_postSelect').value;
+      if (!secNo || !postName) return alert("Select a Post Name.");
+      const btn = event.target; const txt = btn.innerText; btn.innerText = "Fetching..."; btn.disabled = true;
+      try {
+        const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "fetch_emp_data", secretariatNo: secNo, postName: postName }), redirect: "follow" });
+        const res = await response.json();
         if (res.success) {
           document.getElementById('regDetails').classList.remove('hidden');
-          document.getElementById('r_secName').value = res.data.secName;
-          document.getElementById('r_postName').value = res.data.postName;
           document.getElementById('r_candName').value = res.data.candidateName;
           document.getElementById('r_cfms').value = res.data.cfmsId;
           document.getElementById('r_phone').value = res.data.phone;
-          
-          // Start Registration Camera
-          const videoElement = document.getElementById('regWebcam');
           const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          videoElement.srcObject = stream;
-        } else { 
-          alert(res.message || "Secretariat No not found"); 
-        }
-      } catch (error) {
-        alert("Connection Error. Ensure the Apps Script URL is correct and deployed as a NEW version.");
-        console.error("Fetch Error:", error);
-      } finally {
-        fetchButton.innerText = originalText;
-        fetchButton.disabled = false;
-      }
+          document.getElementById('regWebcam').srcObject = stream;
+        } else alert(res.message);
+      } catch (error) { alert("Error fetching details."); } 
+      finally { btn.innerText = txt; btn.disabled = false; }
     }
 
     async function registerWithFace() {
       const video = document.getElementById('regWebcam');
-      const prompt = document.getElementById('regPrompt');
-      prompt.innerText = "Scanning Face...";
-      
+      document.getElementById('regPrompt').innerText = "Scanning Face...";
       const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-      if (!detection) {
-        prompt.innerText = "Align face for Registration";
-        return alert("No face detected! Please look directly at the camera in good lighting.");
-      }
+      if (!detection) return alert("No face detected! Please look directly at the camera in good lighting.");
       
       const payload = {
-        action: "self_register",
-        secName: document.getElementById('r_secName').value,
-        candidateName: document.getElementById('r_candName').value,
-        cfmsId: document.getElementById('r_cfms').value,
-        phone: document.getElementById('r_phone').value,
-        empRequest: document.getElementById('r_request').value,
-        faceDescriptor: Array.from(detection.descriptor) // Convert Float32Array to standard array
+        action: "self_register", secName: document.getElementById('r_secName').value, candidateName: document.getElementById('r_candName').value,
+        cfmsId: document.getElementById('r_cfms').value, phone: document.getElementById('r_phone').value, empRequest: document.getElementById('r_request').value,
+        faceDescriptor: Array.from(detection.descriptor)
       };
-
       try {
-        const response = await fetch(SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload),
-          redirect: "follow"
-        });
+        const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload), redirect: "follow" });
         const res = await response.json();
-        
-        if (res.success) {
-          alert(`🎉 Registration Successful!\n\nCandidate: ${payload.candidateName}\nCFMS ID: ${payload.cfmsId}\n\nYou can now log in to mark attendance.`);
-          showHome();
-        } else {
-          alert("Registration failed: " + res.message);
-        }
-      } catch (error) {
-        alert("Error connecting to server to save registration.");
-        console.error(error);
-      }
+        if (res.success) { alert(`🎉 Registration Successful!\nCandidate: ${payload.candidateName}\nCFMS: ${payload.cfmsId}`); showHome(); }
+      } catch (e) { alert("Registration network error."); }
     }
 
-    // --- MODULE 2: Admin & Request Handling ---
+    // ADMIN
     async function loginAdmin() {
-      const u = document.getElementById('adminUser').value;
-      const p = document.getElementById('adminPass').value;
-      
+      const u = document.getElementById('adminUser').value, p = document.getElementById('adminPass').value;
       try {
-        const response = await fetch(SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ action: "admin_login", username: u, password: p }),
-          redirect: "follow"
-        });
+        const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "admin_login", username: u, password: p }), redirect: "follow" });
         const res = await response.json();
-        
-        if (res.success) {
-          hideAll(); 
-          document.getElementById('adminDashboardView').classList.remove('hidden');
-          document.getElementById('logoutBtn').classList.remove('hidden');
-          loadRequests();
-        } else {
-          alert(res.message);
-        }
-      } catch (err) {
-        alert("Login failed. Check connection.");
-      }
+        if (res.success) { hideAll(); document.getElementById('adminDashboardView').classList.remove('hidden'); document.getElementById('logoutBtn').classList.remove('hidden'); loadRequests(); }
+        else alert(res.message);
+      } catch (err) { alert("Login failed."); }
     }
     
     async function loadRequests() {
-      const container = document.getElementById('requestsContainer');
-      container.innerHTML = "<p class='text-slate-500'>Loading...</p>";
-      
+      const container = document.getElementById('requestsContainer'); container.innerHTML = "<p>Loading...</p>";
       try {
-        const response = await fetch(SCRIPT_URL, { 
-          method: "POST", 
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ action: "get_requests" }),
-          redirect: "follow"
-        });
+        const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "get_requests" }), redirect: "follow" });
         const res = await response.json();
-        
         if (res.success && res.requests.length > 0) {
-          container.innerHTML = res.requests.map(r => `
-            <div class="p-3 bg-white border border-slate-200 rounded-lg shadow-sm">
-              <b class="text-indigo-900">${r.name} (${r.cfmsId})</b>
-              <p class="text-slate-600 mt-1 text-xs"><b>Requested Edit:</b> <i>${r.request}</i></p>
-              <button onclick="resolveRequest(${r.rowIdx})" class="mt-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded transition">Mark as Resolved</button>
-            </div>
-          `).join('');
-        } else { 
-          container.innerHTML = "<p class='text-slate-500'>No pending requests found.</p>"; 
-        }
-      } catch (err) {
-        container.innerHTML = "<p class='text-red-500'>Failed to load requests.</p>";
-      }
+          container.innerHTML = res.requests.map(r => `<div class="p-3 bg-white border border-slate-200 rounded-lg shadow-sm"><b class="text-indigo-900">${r.name} (${r.cfmsId})</b><p class="text-slate-600 mt-1 text-xs"><b>Requested Edit:</b> <i>${r.request}</i></p><button onclick="resolveRequest(${r.rowIdx})" class="mt-2 text-xs bg-indigo-600 text-white px-3 py-1.5 rounded">Mark Resolved</button></div>`).join('');
+        } else container.innerHTML = "<p class='text-slate-500'>No pending requests found.</p>";
+      } catch (err) { container.innerHTML = "<p class='text-red-500'>Failed to load.</p>"; }
     }
-
     async function resolveRequest(idx) {
-      await fetch(SCRIPT_URL, { 
-        method: "POST", 
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "resolve_request", rowIdx: idx }),
-        redirect: "follow"
-      });
+      await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "resolve_request", rowIdx: idx }), redirect: "follow" });
       loadRequests();
     }
+    function fetchCurrentLocationForGeofence() {
+      navigator.geolocation.getCurrentPosition(pos => { document.getElementById('geoLat').value = pos.coords.latitude; document.getElementById('geoLng').value = pos.coords.longitude; }, err => alert(err.message), { enableHighAccuracy: true });
+    }
+    async function saveGeofence() {
+      const payload = { action: "set_geofence", secretariat: document.getElementById('geoSec').value, latitude: parseFloat(document.getElementById('geoLat').value), longitude: parseFloat(document.getElementById('geoLng').value), radius: parseFloat(document.getElementById('geoRadius').value) };
+      const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload), redirect: "follow" });
+      alert((await response.json()).message);
+    }
 
-    // --- MODULE 3: Employee Attendance & AI Face Matching ---
+    // EMPLOYEE ATTENDANCE
     async function loginEmployee() {
-      const cfms = document.getElementById('empCfms').value;
-      const pass = document.getElementById('empPass').value;
-      
       try {
-        const response = await fetch(SCRIPT_URL, { 
-          method: "POST", 
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ action: "emp_login", cfmsId: cfms, password: pass }),
-          redirect: "follow" 
-        });
+        const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "emp_login", cfmsId: document.getElementById('empCfms').value, password: document.getElementById('empPass').value }), redirect: "follow" });
         const res = await response.json();
-        
         if (res.success) {
-          currentUser = res.user;
-          hideAll(); 
-          document.getElementById('empCaptureView').classList.remove('hidden');
-          document.getElementById('logoutBtn').classList.remove('hidden');
-          document.getElementById('empWelcome').innerText = `${currentUser.name} (${currentUser.cfmsId})`;
-          
-          // Verify GPS Location (Assuming success for this snippet to focus on AI)
-          document.getElementById('geoStatus').innerText = "Location Verified";
-          document.getElementById('geoStatus').className = "text-xs font-semibold text-emerald-600";
-          
-          startAI();
+          currentUser = res.user; hideAll(); document.getElementById('empCaptureView').classList.remove('hidden'); document.getElementById('logoutBtn').classList.remove('hidden'); document.getElementById('empWelcome').innerText = `${currentUser.name} (${currentUser.cfmsId})`;
+          verifyLocationAndInitCamera();
+        } else alert(res.message);
+      } catch (err) { alert("Login error."); }
+    }
+
+    function verifyLocationAndInitCamera() {
+      const geoStatus = document.getElementById('geoStatus'); geoStatus.innerText = "Checking GPS Location...";
+      navigator.geolocation.getCurrentPosition(async pos => {
+        currentCoords.lat = pos.coords.latitude; currentCoords.lng = pos.coords.longitude;
+        const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "get_geofence", secretariat: currentUser.secretariat }), redirect: "follow" });
+        const res = await response.json();
+        if (res.success) {
+          const R = 6371e3, φ1 = currentCoords.lat*Math.PI/180, φ2 = res.geofence.lat*Math.PI/180;
+          const dist = R * 2 * Math.atan2(Math.sqrt(Math.sin((res.geofence.lat-currentCoords.lat)*Math.PI/180/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin((res.geofence.lng-currentCoords.lng)*Math.PI/180/2)**2), Math.sqrt(1-(Math.sin((res.geofence.lat-currentCoords.lat)*Math.PI/180/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin((res.geofence.lng-currentCoords.lng)*Math.PI/180/2)**2)));
+          if (dist <= res.geofence.radius) {
+            isGeofenceValid = true; geoStatus.innerText = `Verified: Inside ${currentUser.secretariat}`; geoStatus.className = "text-xs font-semibold text-emerald-600"; startAI();
+          } else {
+            isGeofenceValid = false; geoStatus.innerText = `Outside Geofence: ${Math.round(dist)}m away`; geoStatus.className = "text-xs font-semibold text-red-600"; alert("Outside designated geofence!");
+          }
         } else {
-          alert(res.message);
+          isGeofenceValid = true; geoStatus.innerText = "No Geofence Set. Starting AI..."; startAI();
         }
-      } catch (err) {
-        alert("Login error. Check connection.");
-      }
+      }, err => { geoStatus.innerText = "Error reading GPS: " + err.message; }, { enableHighAccuracy: true });
     }
 
     function startAI() {
-      const videoElement = document.getElementById('webcam');
-      const prompt = document.getElementById('aiPrompt');
-      
-      const faceMesh = new FaceMesh({ 
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` 
-      });
-      
+      const videoElement = document.getElementById('webcam'), prompt = document.getElementById('aiPrompt');
+      const faceMesh = new FaceMesh({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
       faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
-      
-      let eyeClosed = false;
-      livenessVerified = false;
+      let eyeClosed = false; livenessVerified = false;
       
       faceMesh.onResults(async (results) => {
-        if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-          prompt.innerText = "No Face Detected";
-          prompt.className = "absolute bottom-3 bg-red-600 text-white text-xs px-3 py-1.5 rounded-full font-semibold border border-white/20";
-          return;
-        }
-        
-        // 1. Calculate Eye Aspect Ratio (EAR) for Blink Detection
+        if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) return prompt.innerText = "No Face Detected";
         const lm = results.multiFaceLandmarks[0];
-        const leftEAR = Math.hypot(lm[159].x-lm[145].x, lm[159].y-lm[145].y) / Math.hypot(lm[33].x-lm[133].x, lm[33].y-lm[133].y);
-        const rightEAR = Math.hypot(lm[386].x-lm[374].x, lm[386].y-lm[374].y) / Math.hypot(lm[362].x-lm[263].x, lm[362].y-lm[263].y);
-        const avgEAR = (leftEAR + rightEAR) / 2;
+        const avgEAR = ((Math.hypot(lm[159].x-lm[145].x, lm[159].y-lm[145].y)/Math.hypot(lm[33].x-lm[133].x, lm[33].y-lm[133].y)) + (Math.hypot(lm[386].x-lm[374].x, lm[386].y-lm[374].y)/Math.hypot(lm[362].x-lm[263].x, lm[362].y-lm[263].y)))/2;
         
-        if (avgEAR < 0.16) {
-          eyeClosed = true;
-        } else if (avgEAR > 0.22 && eyeClosed && !livenessVerified) {
-          livenessVerified = true;
-          prompt.innerText = "Blink Verified! Matching Identity...";
-          prompt.className = "absolute bottom-3 bg-amber-500 text-white text-xs px-3 py-1.5 rounded-full font-semibold border border-white/20";
-          
-          // 2. Liveness Passed -> Execute Face Recognition Match
+        if (avgEAR < 0.16) eyeClosed = true;
+        else if (avgEAR > 0.22 && eyeClosed && !livenessVerified) {
+          livenessVerified = true; prompt.innerText = "Blink Verified! Matching Identity...";
           const detection = await faceapi.detectSingleFace(videoElement).withFaceLandmarks().withFaceDescriptor();
           if (detection) {
-             const registeredDescriptor = new Float32Array(currentUser.faceDescriptor);
-             const distance = faceapi.euclideanDistance(detection.descriptor, registeredDescriptor);
-             
-             if (distance < 0.55) { // Threshold for strict match
-                prompt.innerText = "✅ Face Matched! Ready to Punch";
-                prompt.className = "absolute bottom-3 bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-full font-semibold border border-white/20";
-                
-                // Capture Image for Backend Log
-                const canvas = document.createElement('canvas'); 
-                canvas.width = 480; 
-                canvas.height = 480;
-                const ctx = canvas.getContext('2d'); 
-                ctx.translate(480, 0); 
-                ctx.scale(-1, 1);
-                ctx.drawImage(videoElement, 0, 0, 480, 480);
+             if (faceapi.euclideanDistance(detection.descriptor, new Float32Array(currentUser.faceDescriptor)) < 0.55) {
+                prompt.innerText = "✅ Face Matched! Ready to Punch"; prompt.className = "absolute bottom-3 bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-full";
+                const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 480; const ctx = canvas.getContext('2d'); ctx.translate(480, 0); ctx.scale(-1, 1); ctx.drawImage(videoElement, 0, 0, 480, 480);
                 capturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
-
-                // Enable Punch Buttons
-                document.getElementById('btnIn').disabled = false; 
-                document.getElementById('btnOut').disabled = false;
-             } else {
-                prompt.innerText = "❌ Face Does Not Match Registration!";
-                prompt.className = "absolute bottom-3 bg-red-600 text-white text-xs px-3 py-1.5 rounded-full font-semibold border border-white/20";
-                livenessVerified = false; 
-                eyeClosed = false; // Reset to try again
-             }
-          } else {
-             livenessVerified = false;
-             eyeClosed = false;
-          }
-        } else if (!livenessVerified) {
-          prompt.innerText = "Please Blink Your Eyes";
-          prompt.className = "absolute bottom-3 bg-indigo-600 text-white text-xs px-3 py-1.5 rounded-full font-semibold border border-white/20";
-        }
+                if (isGeofenceValid) { document.getElementById('btnIn').disabled = false; document.getElementById('btnOut').disabled = false; }
+             } else { prompt.innerText = "❌ Face Does Not Match!"; prompt.className = "absolute bottom-3 bg-red-600 text-white text-xs px-3 py-1.5 rounded-full"; livenessVerified = false; eyeClosed = false; }
+          } else { livenessVerified = false; eyeClosed = false; }
+        } else if (!livenessVerified) prompt.innerText = "Please Blink Your Eyes";
       });
 
-      cameraInstance = new Camera(videoElement, { 
-        onFrame: async () => { await faceMesh.send({ image: videoElement }); }, 
-        width: 480, height: 480 
-      });
+      cameraInstance = new Camera(videoElement, { onFrame: async () => { await faceMesh.send({ image: videoElement }); }, width: 480, height: 480 });
       cameraInstance.start();
     }
 
     async function punchAttendance(type) {
-      if (!livenessVerified || !capturedPhotoBase64) return alert("AI Verification required.");
-
+      if (!livenessVerified || !capturedPhotoBase64 || !isGeofenceValid) return;
       const btn = type === 'IN' ? document.getElementById('btnIn') : document.getElementById('btnOut');
-      const originalText = btn.innerText;
-      btn.innerText = "Submitting...";
-      btn.disabled = true;
-
-      const payload = {
-        action: "mark_attendance",
-        cfmsId: currentUser.cfmsId,
-        name: currentUser.name,
-        secretariat: currentUser.secretariat,
-        type: type,
-        status: "PRESENT",
-        lat: currentCoords.lat,
-        lng: currentCoords.lng,
-        photoBase64: capturedPhotoBase64
-      };
-
+      const txt = btn.innerText; btn.innerText = "Submitting..."; btn.disabled = true;
       try {
-        const response = await fetch(SCRIPT_URL, { 
-          method: "POST", 
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload),
-          redirect: "follow"
-        });
-        const res = await response.json();
-        
-        if (res.success) {
-          alert(`Success: ${type} Recorded for ${currentUser.name}`);
-          logout();
-        } else {
-          alert("Failed to record attendance: " + res.message);
-        }
-      } catch (err) {
-        alert("Network error while submitting attendance.");
-      } finally {
-        btn.innerText = originalText;
-        btn.disabled = false;
-      }
+        const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "mark_attendance", cfmsId: currentUser.cfmsId, name: currentUser.name, secretariat: currentUser.secretariat, type: type, status: "PRESENT", lat: currentCoords.lat, lng: currentCoords.lng, photoBase64: capturedPhotoBase64 }), redirect: "follow" });
+        if ((await response.json()).success) { alert(`Success: ${type} Recorded for ${currentUser.name}`); logout(); }
+      } catch (err) { alert("Network error."); } finally { btn.innerText = txt; btn.disabled = false; }
     }
   </script>
 </body>
