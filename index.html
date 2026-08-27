@@ -70,7 +70,7 @@
           <video id="regWebcam" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
           <div id="regPrompt" class="absolute bottom-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-semibold text-center">Align face for Registration</div>
         </div>
-        <button onclick="registerWithFace()" class="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl mt-2 shadow transition">Capture Face & Register</button>
+        <button onclick="registerWithFace(event)" class="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl mt-2 shadow transition">Capture Face & Register</button>
       </div>
       <button onclick="showHome()" class="w-full text-slate-500 hover:text-slate-700 text-sm font-medium mt-2 transition">Cancel & Back</button>
     </div>
@@ -163,7 +163,14 @@
       document.getElementById('logoutBtn').classList.add('hidden');
     }
 
-    function showHome() { hideAll(); document.getElementById('roleView').classList.remove('hidden'); stopCameras(); }
+    function showHome() { 
+      hideAll(); 
+      document.getElementById('roleView').classList.remove('hidden'); 
+      stopCameras();
+      // Reload page state to unlock fields if needed
+      if (document.getElementById('btnFindSec').disabled) window.location.reload(); 
+    }
+    
     function showAdminLogin() { hideAll(); document.getElementById('adminLoginView').classList.remove('hidden'); }
     function showEmpLogin() { hideAll(); document.getElementById('empLoginView').classList.remove('hidden'); initFaceAPI(); }
     function showRegistration() { hideAll(); document.getElementById('registrationView').classList.remove('hidden'); initFaceAPI(); }
@@ -226,9 +233,7 @@
 
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      } catch (camError) {
-        // Handled below after data fetch
-      }
+      } catch (camError) {}
 
       try {
         const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "fetch_emp_data", secretariatNo: secNo, postName: postName }), redirect: "follow" });
@@ -272,7 +277,10 @@
       }
     }
 
-    async function registerWithFace() {
+    async function registerWithFace(event) {
+      const btn = event.target;
+      const originalText = btn.innerText;
+      
       const video = document.getElementById('regWebcam');
       const pass = document.getElementById('r_password').value.trim();
       
@@ -280,48 +288,54 @@
       if (pass.length < 4) return alert("❌ Password must be at least 4 characters long.");
       if (!video.srcObject) return alert("❌ Camera stream is not active. Please resolve camera permissions first.");
       
+      btn.innerText = "Analyzing Face Data...";
+      btn.disabled = true;
       document.getElementById('regPrompt').innerText = "Analyzing Face AI Rules...";
       
-      // STRICT AI RULES: Check for multiple faces, non-human faces, masks/sunglasses
-      const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
-      
-      if (detections.length === 0) {
-        document.getElementById('regPrompt').innerText = "Align face for Registration";
-        return alert("❌ Human face not detected! Please ensure you are looking directly at the camera in good lighting.");
-      }
-      
-      if (detections.length > 1) {
-        document.getElementById('regPrompt').innerText = "Align face for Registration";
-        return alert("❌ Multiple faces detected! Only one person is allowed in the frame. Please prevent others from pranking/mocking.");
-      }
-
-      // Confidence score check: heavily obscured faces (masks, sunglasses) usually score lower.
-      if (detections[0].detection.score < 0.85) {
-         document.getElementById('regPrompt').innerText = "Align face for Registration";
-         return alert("❌ Face obscured or not clearly visible. Please remove masks, heavy glasses, or caps to ensure high-quality registration.");
-      }
-      
-      const payload = {
-        action: "self_register", 
-        secName: document.getElementById('r_secName').value, 
-        candidateName: document.getElementById('r_candName').value,
-        cfmsId: document.getElementById('r_cfms').value, 
-        phone: document.getElementById('r_phone').value, 
-        password: pass,
-        empRequest: document.getElementById('r_request').value,
-        faceDescriptor: Array.from(detections[0].descriptor) // Safe, exactly 1 face detected
-      };
-
       try {
+        const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
+        
+        if (detections.length === 0) {
+          document.getElementById('regPrompt').innerText = "Align face for Registration";
+          throw new Error("❌ Human face not detected! Please ensure you are looking directly at the camera in good lighting.");
+        }
+        
+        if (detections.length > 1) {
+          document.getElementById('regPrompt').innerText = "Align face for Registration";
+          throw new Error("❌ Multiple faces detected! Only one person is allowed in the frame. Please prevent others from pranking/mocking.");
+        }
+
+        if (detections[0].detection.score < 0.85) {
+           document.getElementById('regPrompt').innerText = "Align face for Registration";
+           throw new Error("❌ Face obscured or not clearly visible. Please remove masks, heavy glasses, or caps to ensure high-quality registration.");
+        }
+        
+        const payload = {
+          action: "self_register", 
+          secName: document.getElementById('r_secName').value, 
+          candidateName: document.getElementById('r_candName').value,
+          cfmsId: document.getElementById('r_cfms').value, 
+          phone: document.getElementById('r_phone').value, 
+          password: pass,
+          empRequest: document.getElementById('r_request').value,
+          faceDescriptor: Array.from(detections[0].descriptor)
+        };
+
         const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload), redirect: "follow" });
         const res = await response.json();
+        
         if (res.success) { 
           alert(`🎉 Registration Successful!\n\nCandidate: ${payload.candidateName}\nCFMS ID: ${payload.cfmsId}\nPassword: ${payload.password}\n\nPlease keep your password safe! Redirecting to Home Page.`); 
           showHome(); 
         } else {
           alert(`Registration Failed:\n${res.message}`);
         }
-      } catch (e) { alert("Registration network error."); }
+      } catch (e) { 
+        alert(e.message || "Registration network error."); 
+      } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
+      }
     }
 
     // --- ADMIN LOGIC ---
