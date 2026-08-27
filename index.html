@@ -34,8 +34,9 @@
       
       <div class="flex gap-2">
         <input type="text" id="regSecNo" placeholder="Enter Secretariat No" class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-amber-400">
-        <button onclick="fetchPosts(event)" class="bg-amber-500 hover:bg-amber-600 text-white px-4 rounded-lg font-bold transition">Find</button>
+        <button id="btnFindSec" onclick="fetchPosts(event)" class="bg-amber-500 hover:bg-amber-600 text-white px-4 rounded-lg font-bold transition disabled:bg-slate-400">Find</button>
       </div>
+      <p id="lockHint" class="hidden text-xs text-slate-500 text-center mt-1">Secretariat Locked. Refresh page to change.</p>
 
       <div id="postSelection" class="hidden space-y-2 mt-2 bg-slate-50 p-3 rounded-lg border">
         <input type="text" id="r_secName" readonly class="w-full p-2 bg-transparent font-bold text-indigo-900 border-b outline-none" placeholder="Secretariat Name">
@@ -50,16 +51,17 @@
         <input type="text" id="r_cfms" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="CFMS ID">
         <input type="text" id="r_phone" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Phone No">
         
+        <input type="password" id="r_password" placeholder="Create your custom Login Password" class="w-full p-2 border border-amber-400 rounded-lg mt-2 outline-none focus:ring-2 focus:ring-amber-500">
+        
         <textarea id="r_request" placeholder="Employee Request: Describe any corrections needed for the above data..." class="w-full p-2 border rounded-lg mt-2 h-16 outline-none focus:ring-2 focus:ring-amber-400"></textarea>
         
-        <!-- UI Guide for Camera Errors (Hidden by default) -->
+        <!-- UI Guide for Camera Errors -->
         <div id="camTroubleshoot" class="hidden bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg mt-2 text-xs space-y-2">
           <p class="font-bold text-red-900">⚠️ Camera Hardware Blocked</p>
           <p>Your operating system is denying camera access. Web browsers cannot force other apps to close. To fix this:</p>
           <ul class="list-disc pl-4 space-y-1">
             <li>Close <b>Zoom, MS Teams, Skype</b>, or Webex.</li>
             <li>Close any other browser tabs using the camera.</li>
-            <li><b>Windows:</b> Go to Settings > Privacy > Camera to see which app is using it.</li>
           </ul>
           <button onclick="retryCamera()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded shadow mt-2">I have closed them. Retry Camera.</button>
         </div>
@@ -83,13 +85,11 @@
     </div>
 
     <div id="adminDashboardView" class="hidden space-y-4">
-      <!-- Requests -->
       <div class="glass p-5 rounded-2xl shadow space-y-3">
         <h3 class="font-bold text-indigo-900 border-b pb-2">Pending Employee Data Requests</h3>
         <button onclick="loadRequests()" class="w-full py-2 bg-slate-200 hover:bg-slate-300 rounded-lg text-sm mb-2 font-semibold transition">Refresh Requests</button>
         <div id="requestsContainer" class="space-y-3 text-sm max-h-48 overflow-y-auto"></div>
       </div>
-      <!-- Geofence -->
       <div class="glass p-5 rounded-2xl shadow space-y-3">
         <h3 class="font-bold text-indigo-900 border-b pb-2">Custom Geofencing Setting</h3>
         <input type="text" id="geoSec" placeholder="Secretariat Name" class="w-full p-2 border rounded-lg">
@@ -186,20 +186,31 @@
 
     // --- REGISTRATION LOGIC ---
     async function fetchPosts(event) {
-      const secNo = document.getElementById('regSecNo').value.trim();
+      const secInput = document.getElementById('regSecNo');
+      const secNo = secInput.value.trim();
       if (!secNo) return alert("Please enter a Secretariat No");
       const btn = event.target; const txt = btn.innerText; btn.innerText = "Finding..."; btn.disabled = true;
       try {
         const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "fetch_posts", secretariatNo: secNo }), redirect: "follow" });
         const res = await response.json();
         if (res.success) {
+          // LOCK THE INPUT
+          secInput.disabled = true;
+          btn.innerText = "Locked";
+          document.getElementById('lockHint').classList.remove('hidden');
+
           document.getElementById('postSelection').classList.remove('hidden'); document.getElementById('regDetails').classList.add('hidden');
           document.getElementById('r_secName').value = res.secName;
           const select = document.getElementById('r_postSelect');
           select.innerHTML = '<option value="">-- Select Post Name --</option>' + res.posts.map(p => `<option value="${p}">${p}</option>`).join('');
-        } else alert(res.message);
-      } catch (error) { alert("Network Connection Error while finding Secretariat."); } 
-      finally { btn.innerText = txt; btn.disabled = false; }
+        } else {
+          btn.innerText = txt; btn.disabled = false;
+          alert(res.message);
+        }
+      } catch (error) { 
+        btn.innerText = txt; btn.disabled = false;
+        alert("Network Connection Error while finding Secretariat."); 
+      }
     }
 
     async function fetchEmpData(event) {
@@ -207,38 +218,21 @@
       const postName = document.getElementById('r_postSelect').value;
       if (!secNo || !postName) return alert("Please select a Post Name.");
       
-      const btn = event.target; 
-      const txt = btn.innerText; 
-      btn.innerText = "Connecting..."; 
-      btn.disabled = true;
+      const btn = event.target; const txt = btn.innerText; btn.innerText = "Connecting..."; btn.disabled = true;
 
       stopCameras();
-      document.getElementById('camTroubleshoot').classList.add('hidden'); // Reset error UI
+      document.getElementById('camTroubleshoot').classList.add('hidden');
       let stream = null;
 
-      // Ask for Camera
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       } catch (camError) {
-        // We handle the UI update after data is fetched successfully below
+        // Handled below after data fetch
       }
 
-      // Fetch Data
       try {
-        const response = await fetch(SCRIPT_URL, { 
-          method: "POST", 
-          headers: { "Content-Type": "text/plain;charset=utf-8" }, 
-          body: JSON.stringify({ action: "fetch_emp_data", secretariatNo: secNo, postName: postName }), 
-          redirect: "follow" 
-        });
-        
-        const rawText = await response.text();
-        let res;
-        try {
-          res = JSON.parse(rawText);
-        } catch (parseError) {
-          throw new Error("Server response invalid. Ensure Apps Script is deployed as a New Version.");
-        }
+        const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "fetch_emp_data", secretariatNo: secNo, postName: postName }), redirect: "follow" });
+        const res = JSON.parse(await response.text());
         
         if (res.success) {
           document.getElementById('regDetails').classList.remove('hidden');
@@ -250,60 +244,83 @@
             document.getElementById('regWebcam').srcObject = stream;
             document.getElementById('regPrompt').innerText = "Align face for Registration";
           } else {
-            // Display Custom UI Troubleshooter instead of annoying popup alert
             document.getElementById('camTroubleshoot').classList.remove('hidden');
             document.getElementById('regPrompt').innerText = "❌ Camera Blocked";
           }
         } else {
           if (stream) stopCameras();
-          alert(res.message); // Employee not found
+          alert(res.message);
         }
       } catch (error) { 
         if (stream) stopCameras();
         alert("🌐 DATABASE ERROR:\n\n" + error.message); 
-      } finally { 
-        btn.innerText = txt; 
-        btn.disabled = false; 
-      }
+      } finally { btn.innerText = txt; btn.disabled = false; }
     }
 
-    // New Retry Logic using the Troubleshooter UI
     async function retryCamera() {
       stopCameras();
       const btn = document.querySelector('#camTroubleshoot button');
-      btn.innerText = "Testing Camera...";
-      btn.disabled = true;
+      btn.innerText = "Testing Camera..."; btn.disabled = true;
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         document.getElementById('regWebcam').srcObject = stream;
         document.getElementById('regPrompt').innerText = "Align face for Registration";
-        document.getElementById('camTroubleshoot').classList.add('hidden'); // Success, hide troubleshooter
+        document.getElementById('camTroubleshoot').classList.add('hidden');
       } catch (camError) {
-        btn.innerText = "Camera Still Locked. Retry Again.";
-        btn.disabled = false;
-        // The browser is still denying access, user must find the background app.
+        btn.innerText = "Camera Still Locked. Retry Again."; btn.disabled = false;
       }
     }
 
     async function registerWithFace() {
       const video = document.getElementById('regWebcam');
-      if (!video.srcObject) {
-         return alert("Camera stream is not active. Please resolve camera permissions using the guide above before registering.");
+      const pass = document.getElementById('r_password').value.trim();
+      
+      if (!pass) return alert("❌ Please create a login password to continue.");
+      if (pass.length < 4) return alert("❌ Password must be at least 4 characters long.");
+      if (!video.srcObject) return alert("❌ Camera stream is not active. Please resolve camera permissions first.");
+      
+      document.getElementById('regPrompt').innerText = "Analyzing Face AI Rules...";
+      
+      // STRICT AI RULES: Check for multiple faces, non-human faces, masks/sunglasses
+      const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
+      
+      if (detections.length === 0) {
+        document.getElementById('regPrompt').innerText = "Align face for Registration";
+        return alert("❌ Human face not detected! Please ensure you are looking directly at the camera in good lighting.");
       }
-      document.getElementById('regPrompt').innerText = "Scanning Face...";
-      const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-      if (!detection) return alert("No face detected! Please look directly at the camera in good lighting.");
+      
+      if (detections.length > 1) {
+        document.getElementById('regPrompt').innerText = "Align face for Registration";
+        return alert("❌ Multiple faces detected! Only one person is allowed in the frame. Please prevent others from pranking/mocking.");
+      }
+
+      // Confidence score check: heavily obscured faces (masks, sunglasses) usually score lower.
+      if (detections[0].detection.score < 0.85) {
+         document.getElementById('regPrompt').innerText = "Align face for Registration";
+         return alert("❌ Face obscured or not clearly visible. Please remove masks, heavy glasses, or caps to ensure high-quality registration.");
+      }
       
       const payload = {
-        action: "self_register", secName: document.getElementById('r_secName').value, candidateName: document.getElementById('r_candName').value,
-        cfmsId: document.getElementById('r_cfms').value, phone: document.getElementById('r_phone').value, empRequest: document.getElementById('r_request').value,
-        faceDescriptor: Array.from(detection.descriptor)
+        action: "self_register", 
+        secName: document.getElementById('r_secName').value, 
+        candidateName: document.getElementById('r_candName').value,
+        cfmsId: document.getElementById('r_cfms').value, 
+        phone: document.getElementById('r_phone').value, 
+        password: pass,
+        empRequest: document.getElementById('r_request').value,
+        faceDescriptor: Array.from(detections[0].descriptor) // Safe, exactly 1 face detected
       };
+
       try {
         const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload), redirect: "follow" });
         const res = await response.json();
-        if (res.success) { alert(`🎉 Registration Successful!\nCandidate: ${payload.candidateName}\nCFMS: ${payload.cfmsId}`); showHome(); }
+        if (res.success) { 
+          alert(`🎉 Registration Successful!\n\nCandidate: ${payload.candidateName}\nCFMS ID: ${payload.cfmsId}\nPassword: ${payload.password}\n\nPlease keep your password safe! Redirecting to Home Page.`); 
+          showHome(); 
+        } else {
+          alert(`Registration Failed:\n${res.message}`);
+        }
       } catch (e) { alert("Registration network error."); }
     }
 
