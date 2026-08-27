@@ -54,7 +54,7 @@
         
         <div class="relative w-full aspect-square bg-black rounded-xl overflow-hidden mt-2 flex items-center justify-center">
           <video id="regWebcam" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
-          <div id="regPrompt" class="absolute bottom-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-semibold">Align face for Registration</div>
+          <div id="regPrompt" class="absolute bottom-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-semibold text-center">Align face for Registration</div>
         </div>
         <button onclick="registerWithFace()" class="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl mt-2 shadow transition">Capture Face & Register</button>
       </div>
@@ -125,7 +125,7 @@
 
   <script>
     // ⚠️ UPDATE THIS LINK ⚠️
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyQlzUKPlRoeq30oDoBjYZW_8d_y6oDM_6bNTFNrYhoIfVg-mUVO0duAACy_K9Cfruv/exec";
+    const SCRIPT_URL = "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE";
 
     let currentUser = null, cameraInstance = null, modelsLoaded = false, livenessVerified = false;
     let currentCoords = { lat: 0, lng: 0 }, isGeofenceValid = false, capturedPhotoBase64 = null;
@@ -157,13 +157,11 @@
     function showRegistration() { hideAll(); document.getElementById('registrationView').classList.remove('hidden'); initFaceAPI(); }
     function logout() { currentUser = null; stopCameras(); showHome(); }
 
-    // 1. Aggressively release any hidden hardware locks
     function stopCameras() {
       if (cameraInstance) { 
         cameraInstance.stop(); 
         cameraInstance = null; 
       }
-      
       const videoElements = ['regWebcam', 'webcam'];
       videoElements.forEach(id => {
         const vid = document.getElementById(id);
@@ -192,7 +190,7 @@
       finally { btn.innerText = txt; btn.disabled = false; }
     }
 
-    // 2. Updated Data Fetch & Safe Camera Init
+    // Explicitly disabling audio to prevent microphone locks, and adding inline retry button
     async function fetchEmpData(event) {
       const secNo = document.getElementById('regSecNo').value.trim();
       const postName = document.getElementById('r_postSelect').value;
@@ -203,24 +201,20 @@
       btn.innerText = "Connecting..."; 
       btn.disabled = true;
 
-      // Force close any existing streams before asking again
       stopCameras();
-
       let stream = null;
       let cameraErrorMsg = null;
 
-      // Ask for Camera safely
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       } catch (camError) {
         if (camError.name === "NotReadableError") {
-          cameraErrorMsg = "Camera hardware is in use by another app (e.g., Zoom/Teams) or a background tab. Please close them.";
+          cameraErrorMsg = "Camera is currently in use by another app (e.g., Zoom/Teams).";
         } else {
-          cameraErrorMsg = `Camera blocked: ${camError.message}. Please allow permissions.`;
+          cameraErrorMsg = `Camera blocked: ${camError.message}.`;
         }
       }
 
-      // Fetch the Employee Data regardless of camera state
       try {
         const response = await fetch(SCRIPT_URL, { 
           method: "POST", 
@@ -238,22 +232,20 @@
         }
         
         if (res.success) {
-          // Show the fetched data
           document.getElementById('regDetails').classList.remove('hidden');
           document.getElementById('r_candName').value = res.data.candidateName;
           document.getElementById('r_cfms').value = res.data.cfmsId;
           document.getElementById('r_phone').value = res.data.phone;
           
-          // Handle video stream attachment
           if (stream) {
             document.getElementById('regWebcam').srcObject = stream;
             document.getElementById('regPrompt').innerText = "Align face for Registration";
             document.getElementById('regPrompt').className = "absolute bottom-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-semibold";
           } else {
-            // Show inline error if camera failed but data succeeded
-            document.getElementById('regPrompt').innerText = "❌ Camera Unavailable";
-            document.getElementById('regPrompt').className = "absolute bottom-2 bg-red-600 text-white text-xs px-2 py-1 rounded font-semibold";
-            alert(`Employee data loaded, but camera failed:\n\n${cameraErrorMsg}`);
+            // Updated: Provide a retry button in the UI
+            document.getElementById('regPrompt').innerHTML = `❌ Camera Blocked. <br><button onclick="retryCamera()" class="mt-1 underline text-amber-300 pointer-events-auto">Close other apps, then click here to Retry</button>`;
+            document.getElementById('regPrompt').className = "absolute bottom-2 bg-red-600 text-white text-xs px-2 py-2 rounded font-semibold text-center";
+            alert(`Employee data loaded, but camera failed:\n\n${cameraErrorMsg}\n\nPlease close the interfering app and click 'Retry' on the video screen.`);
           }
         } else {
           if (stream) stopCameras();
@@ -265,6 +257,21 @@
       } finally { 
         btn.innerText = txt; 
         btn.disabled = false; 
+      }
+    }
+
+    // Function to retry the camera without re-fetching data
+    async function retryCamera() {
+      stopCameras();
+      document.getElementById('regPrompt').innerText = "Retrying camera...";
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        document.getElementById('regWebcam').srcObject = stream;
+        document.getElementById('regPrompt').innerText = "Align face for Registration";
+        document.getElementById('regPrompt').className = "absolute bottom-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-semibold";
+      } catch (camError) {
+        alert(`Camera still blocked. You must completely close the other app using the camera.\n\nError: ${camError.message}`);
+        document.getElementById('regPrompt').innerHTML = `❌ Still Blocked. <br><button onclick="retryCamera()" class="mt-1 underline text-amber-300 pointer-events-auto">Retry Again</button>`;
       }
     }
 
@@ -357,7 +364,7 @@
 
     function startAI() {
       const videoElement = document.getElementById('webcam'), prompt = document.getElementById('aiPrompt');
-      stopCameras(); // Clean any locks before starting MediaPipe
+      stopCameras(); 
       const faceMesh = new FaceMesh({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
       faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
       let eyeClosed = false; livenessVerified = false;
