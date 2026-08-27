@@ -181,7 +181,7 @@
       finally { btn.innerText = txt; btn.disabled = false; }
     }
 
-    // REWRITTEN: Forces Camera Permission FIRST, then Fetches Data.
+    // UPDATED FUNCTION: Resolves Desktop constraint errors & prints specific browser errors
     async function fetchEmpData(event) {
       const secNo = document.getElementById('regSecNo').value.trim();
       const postName = document.getElementById('r_postSelect').value;
@@ -194,13 +194,14 @@
 
       let stream = null;
 
-      // STEP 1: Ask for Camera Permission (Fixes Mobile Blocking Issue)
+      // STEP 1: Ask for Camera Permission using universal basic settings
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        stream = await navigator.mediaDevices.getUserMedia({ video: true }); // Removed strict front-facing requirement for desktop compatibility
       } catch (camError) {
         btn.innerText = txt; 
         btn.disabled = false;
-        return alert("📸 CAMERA PERMISSION DENIED!\n\nYour mobile phone or browser is blocking camera access. Please go to your browser settings, or click the lock icon in the address bar, and ALLOW the camera for this website.");
+        // Displays exact hardware/permission error message
+        return alert(`📸 CAMERA ERROR: ${camError.name}\n${camError.message}\n\nYour device blocked camera access. Please check permissions, ensure no other app (like Zoom/Meet) is using the camera, and try again.`);
       }
 
       // STEP 2: Fetch the data
@@ -213,7 +214,6 @@
           redirect: "follow" 
         });
         
-        // Convert response to text first to safely check for HTML errors from Google
         const rawText = await response.text();
         let res;
         try {
