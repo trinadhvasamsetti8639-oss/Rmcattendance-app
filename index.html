@@ -181,7 +181,7 @@
       finally { btn.innerText = txt; btn.disabled = false; }
     }
 
-    // UPDATED FUNCTION: Resolves Desktop constraint errors & prints specific browser errors
+    // Resolves Desktop constraint errors & prints specific browser errors
     async function fetchEmpData(event) {
       const secNo = document.getElementById('regSecNo').value.trim();
       const postName = document.getElementById('r_postSelect').value;
@@ -194,17 +194,16 @@
 
       let stream = null;
 
-      // STEP 1: Ask for Camera Permission using universal basic settings
+      // Ask for Camera Permission using universal basic settings
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true }); // Removed strict front-facing requirement for desktop compatibility
+        stream = await navigator.mediaDevices.getUserMedia({ video: true }); // Supports both desktop webcams and mobile cameras
       } catch (camError) {
         btn.innerText = txt; 
         btn.disabled = false;
-        // Displays exact hardware/permission error message
         return alert(`📸 CAMERA ERROR: ${camError.name}\n${camError.message}\n\nYour device blocked camera access. Please check permissions, ensure no other app (like Zoom/Meet) is using the camera, and try again.`);
       }
 
-      // STEP 2: Fetch the data
+      // Fetch the data
       btn.innerText = "Fetching Data...";
       try {
         const response = await fetch(SCRIPT_URL, { 
@@ -228,10 +227,8 @@
           document.getElementById('r_cfms').value = res.data.cfmsId;
           document.getElementById('r_phone').value = res.data.phone;
           
-          // Attach camera stream to video element
           document.getElementById('regWebcam').srcObject = stream;
         } else {
-          // If employee not found, stop the camera
           if (stream) stream.getTracks().forEach(t => t.stop());
           alert(res.message);
         }
