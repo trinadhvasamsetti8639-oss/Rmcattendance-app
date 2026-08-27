@@ -52,6 +52,18 @@
         
         <textarea id="r_request" placeholder="Employee Request: Describe any corrections needed for the above data..." class="w-full p-2 border rounded-lg mt-2 h-16 outline-none focus:ring-2 focus:ring-amber-400"></textarea>
         
+        <!-- UI Guide for Camera Errors (Hidden by default) -->
+        <div id="camTroubleshoot" class="hidden bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg mt-2 text-xs space-y-2">
+          <p class="font-bold text-red-900">⚠️ Camera Hardware Blocked</p>
+          <p>Your operating system is denying camera access. Web browsers cannot force other apps to close. To fix this:</p>
+          <ul class="list-disc pl-4 space-y-1">
+            <li>Close <b>Zoom, MS Teams, Skype</b>, or Webex.</li>
+            <li>Close any other browser tabs using the camera.</li>
+            <li><b>Windows:</b> Go to Settings > Privacy > Camera to see which app is using it.</li>
+          </ul>
+          <button onclick="retryCamera()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded shadow mt-2">I have closed them. Retry Camera.</button>
+        </div>
+
         <div class="relative w-full aspect-square bg-black rounded-xl overflow-hidden mt-2 flex items-center justify-center">
           <video id="regWebcam" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
           <div id="regPrompt" class="absolute bottom-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-semibold text-center">Align face for Registration</div>
@@ -190,7 +202,6 @@
       finally { btn.innerText = txt; btn.disabled = false; }
     }
 
-    // Explicitly disabling audio to prevent microphone locks, and adding inline retry button
     async function fetchEmpData(event) {
       const secNo = document.getElementById('regSecNo').value.trim();
       const postName = document.getElementById('r_postSelect').value;
@@ -202,19 +213,17 @@
       btn.disabled = true;
 
       stopCameras();
+      document.getElementById('camTroubleshoot').classList.add('hidden'); // Reset error UI
       let stream = null;
-      let cameraErrorMsg = null;
 
+      // Ask for Camera
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       } catch (camError) {
-        if (camError.name === "NotReadableError") {
-          cameraErrorMsg = "Camera is currently in use by another app (e.g., Zoom/Teams).";
-        } else {
-          cameraErrorMsg = `Camera blocked: ${camError.message}.`;
-        }
+        // We handle the UI update after data is fetched successfully below
       }
 
+      // Fetch Data
       try {
         const response = await fetch(SCRIPT_URL, { 
           method: "POST", 
@@ -240,16 +249,14 @@
           if (stream) {
             document.getElementById('regWebcam').srcObject = stream;
             document.getElementById('regPrompt').innerText = "Align face for Registration";
-            document.getElementById('regPrompt').className = "absolute bottom-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-semibold";
           } else {
-            // Updated: Provide a retry button in the UI
-            document.getElementById('regPrompt').innerHTML = `❌ Camera Blocked. <br><button onclick="retryCamera()" class="mt-1 underline text-amber-300 pointer-events-auto">Close other apps, then click here to Retry</button>`;
-            document.getElementById('regPrompt').className = "absolute bottom-2 bg-red-600 text-white text-xs px-2 py-2 rounded font-semibold text-center";
-            alert(`Employee data loaded, but camera failed:\n\n${cameraErrorMsg}\n\nPlease close the interfering app and click 'Retry' on the video screen.`);
+            // Display Custom UI Troubleshooter instead of annoying popup alert
+            document.getElementById('camTroubleshoot').classList.remove('hidden');
+            document.getElementById('regPrompt').innerText = "❌ Camera Blocked";
           }
         } else {
           if (stream) stopCameras();
-          alert(res.message);
+          alert(res.message); // Employee not found
         }
       } catch (error) { 
         if (stream) stopCameras();
@@ -260,25 +267,29 @@
       }
     }
 
-    // Function to retry the camera without re-fetching data
+    // New Retry Logic using the Troubleshooter UI
     async function retryCamera() {
       stopCameras();
-      document.getElementById('regPrompt').innerText = "Retrying camera...";
+      const btn = document.querySelector('#camTroubleshoot button');
+      btn.innerText = "Testing Camera...";
+      btn.disabled = true;
+
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         document.getElementById('regWebcam').srcObject = stream;
         document.getElementById('regPrompt').innerText = "Align face for Registration";
-        document.getElementById('regPrompt').className = "absolute bottom-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-semibold";
+        document.getElementById('camTroubleshoot').classList.add('hidden'); // Success, hide troubleshooter
       } catch (camError) {
-        alert(`Camera still blocked. You must completely close the other app using the camera.\n\nError: ${camError.message}`);
-        document.getElementById('regPrompt').innerHTML = `❌ Still Blocked. <br><button onclick="retryCamera()" class="mt-1 underline text-amber-300 pointer-events-auto">Retry Again</button>`;
+        btn.innerText = "Camera Still Locked. Retry Again.";
+        btn.disabled = false;
+        // The browser is still denying access, user must find the background app.
       }
     }
 
     async function registerWithFace() {
       const video = document.getElementById('regWebcam');
       if (!video.srcObject) {
-         return alert("Camera stream is not active. Please resolve camera permissions before registering.");
+         return alert("Camera stream is not active. Please resolve camera permissions using the guide above before registering.");
       }
       document.getElementById('regPrompt').innerText = "Scanning Face...";
       const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
