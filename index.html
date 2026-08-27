@@ -157,10 +157,21 @@
     function showRegistration() { hideAll(); document.getElementById('registrationView').classList.remove('hidden'); initFaceAPI(); }
     function logout() { currentUser = null; stopCameras(); showHome(); }
 
+    // 1. Aggressively release any hidden hardware locks
     function stopCameras() {
-      if (cameraInstance) { cameraInstance.stop(); cameraInstance = null; }
-      const regVideo = document.getElementById('regWebcam');
-      if (regVideo.srcObject) { regVideo.srcObject.getTracks().forEach(t => t.stop()); regVideo.srcObject = null; }
+      if (cameraInstance) { 
+        cameraInstance.stop(); 
+        cameraInstance = null; 
+      }
+      
+      const videoElements = ['regWebcam', 'webcam'];
+      videoElements.forEach(id => {
+        const vid = document.getElementById(id);
+        if (vid && vid.srcObject) {
+          vid.srcObject.getTracks().forEach(t => t.stop());
+          vid.srcObject = null;
+        }
+      });
     }
 
     // --- REGISTRATION LOGIC ---
@@ -181,7 +192,7 @@
       finally { btn.innerText = txt; btn.disabled = false; }
     }
 
-    // Resolves Desktop constraint errors & prints specific browser errors
+    // 2. Updated Data Fetch & Safe Camera Init
     async function fetchEmpData(event) {
       const secNo = document.getElementById('regSecNo').value.trim();
       const postName = document.getElementById('r_postSelect').value;
@@ -189,22 +200,27 @@
       
       const btn = event.target; 
       const txt = btn.innerText; 
-      btn.innerText = "Requesting Camera..."; 
+      btn.innerText = "Connecting..."; 
       btn.disabled = true;
 
-      let stream = null;
+      // Force close any existing streams before asking again
+      stopCameras();
 
-      // Ask for Camera Permission using universal basic settings
+      let stream = null;
+      let cameraErrorMsg = null;
+
+      // Ask for Camera safely
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true }); // Supports both desktop webcams and mobile cameras
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
       } catch (camError) {
-        btn.innerText = txt; 
-        btn.disabled = false;
-        return alert(`📸 CAMERA ERROR: ${camError.name}\n${camError.message}\n\nYour device blocked camera access. Please check permissions, ensure no other app (like Zoom/Meet) is using the camera, and try again.`);
+        if (camError.name === "NotReadableError") {
+          cameraErrorMsg = "Camera hardware is in use by another app (e.g., Zoom/Teams) or a background tab. Please close them.";
+        } else {
+          cameraErrorMsg = `Camera blocked: ${camError.message}. Please allow permissions.`;
+        }
       }
 
-      // Fetch the data
-      btn.innerText = "Fetching Data...";
+      // Fetch the Employee Data regardless of camera state
       try {
         const response = await fetch(SCRIPT_URL, { 
           method: "POST", 
@@ -218,22 +234,33 @@
         try {
           res = JSON.parse(rawText);
         } catch (parseError) {
-          throw new Error("Server returned an invalid response. Ensure Apps Script is deployed to 'Anyone' as a New Version.");
+          throw new Error("Server response invalid. Ensure Apps Script is deployed as a New Version.");
         }
         
         if (res.success) {
+          // Show the fetched data
           document.getElementById('regDetails').classList.remove('hidden');
           document.getElementById('r_candName').value = res.data.candidateName;
           document.getElementById('r_cfms').value = res.data.cfmsId;
           document.getElementById('r_phone').value = res.data.phone;
           
-          document.getElementById('regWebcam').srcObject = stream;
+          // Handle video stream attachment
+          if (stream) {
+            document.getElementById('regWebcam').srcObject = stream;
+            document.getElementById('regPrompt').innerText = "Align face for Registration";
+            document.getElementById('regPrompt').className = "absolute bottom-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-semibold";
+          } else {
+            // Show inline error if camera failed but data succeeded
+            document.getElementById('regPrompt').innerText = "❌ Camera Unavailable";
+            document.getElementById('regPrompt').className = "absolute bottom-2 bg-red-600 text-white text-xs px-2 py-1 rounded font-semibold";
+            alert(`Employee data loaded, but camera failed:\n\n${cameraErrorMsg}`);
+          }
         } else {
-          if (stream) stream.getTracks().forEach(t => t.stop());
+          if (stream) stopCameras();
           alert(res.message);
         }
       } catch (error) { 
-        if (stream) stream.getTracks().forEach(t => t.stop());
+        if (stream) stopCameras();
         alert("🌐 DATABASE ERROR:\n\n" + error.message); 
       } finally { 
         btn.innerText = txt; 
@@ -243,6 +270,9 @@
 
     async function registerWithFace() {
       const video = document.getElementById('regWebcam');
+      if (!video.srcObject) {
+         return alert("Camera stream is not active. Please resolve camera permissions before registering.");
+      }
       document.getElementById('regPrompt').innerText = "Scanning Face...";
       const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
       if (!detection) return alert("No face detected! Please look directly at the camera in good lighting.");
@@ -327,6 +357,7 @@
 
     function startAI() {
       const videoElement = document.getElementById('webcam'), prompt = document.getElementById('aiPrompt');
+      stopCameras(); // Clean any locks before starting MediaPipe
       const faceMesh = new FaceMesh({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
       faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
       let eyeClosed = false; livenessVerified = false;
