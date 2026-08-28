@@ -28,31 +28,27 @@
       <button onclick="showAdminLogin()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md transition">Admin / Requests Portal</button>
     </div>
 
-    <!-- SELF REGISTRATION VIEW -->
+    <!-- ENHANCED SELF REGISTRATION VIEW (By CFMS ID) -->
     <div id="registrationView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
       <h2 class="text-xl font-bold text-amber-700">Self Registration</h2>
       
       <div class="flex gap-2">
-        <input type="text" id="regSecNo" placeholder="Enter Secretariat No" class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-amber-400">
-        <button id="btnFindSec" onclick="fetchPosts(event)" class="bg-amber-500 hover:bg-amber-600 text-white px-4 rounded-lg font-bold transition disabled:bg-slate-400">Find</button>
+        <input type="text" id="regCfmsId" placeholder="Enter CFMS ID" class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-amber-400">
+        <button id="btnFindCfms" onclick="fetchEmpData(event)" class="bg-amber-500 hover:bg-amber-600 text-white px-4 rounded-lg font-bold transition disabled:bg-slate-400">Fetch Details</button>
       </div>
-      <p id="lockHint" class="hidden text-xs text-slate-500 text-center mt-1">Secretariat Locked. Refresh page to change.</p>
-
-      <div id="postSelection" class="hidden space-y-2 mt-2 bg-slate-50 p-3 rounded-lg border">
-        <input type="text" id="r_secName" readonly class="w-full p-2 bg-transparent font-bold text-indigo-900 border-b outline-none" placeholder="Secretariat Name">
-        <select id="r_postSelect" class="w-full p-2 border rounded-lg bg-white mt-2 outline-none focus:ring-2 focus:ring-amber-400">
-          <option value="">-- Select Post Name --</option>
-        </select>
-        <button onclick="fetchEmpData(event)" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg mt-2 shadow transition">Fetch Employee Details</button>
-      </div>
+      <p id="lockHint" class="hidden text-xs text-slate-500 text-center mt-1">CFMS ID Locked. Refresh page to change.</p>
 
       <div id="regDetails" class="hidden space-y-2 text-sm mt-4 border-t pt-4">
+        <!-- New Read-Only Fields populated from CFMS search -->
         <input type="text" id="r_candName" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Candidate Name">
-        <input type="text" id="r_cfms" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="CFMS ID">
+        <input type="text" id="r_dept" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Department">
+        <input type="text" id="r_secNo" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Secretariat No">
+        <input type="text" id="r_secName" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Secretariat Name">
+        <input type="text" id="r_postName" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Post Name">
         <input type="text" id="r_phone" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Phone No">
+        <input type="text" id="r_remarks" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Office Remarks">
         
         <input type="password" id="r_password" placeholder="Create your custom Login Password" class="w-full p-2 border border-amber-400 rounded-lg mt-2 outline-none focus:ring-2 focus:ring-amber-500">
-        
         <textarea id="r_request" placeholder="Employee Request: Describe any corrections needed for the above data..." class="w-full p-2 border rounded-lg mt-2 h-16 outline-none focus:ring-2 focus:ring-amber-400"></textarea>
         
         <!-- UI Guide for Camera Errors -->
@@ -167,8 +163,8 @@
       hideAll(); 
       document.getElementById('roleView').classList.remove('hidden'); 
       stopCameras();
-      // Reload page state to unlock fields if needed
-      if (document.getElementById('btnFindSec').disabled) window.location.reload(); 
+      // Reload page if fields were locked during registration
+      if (document.getElementById('btnFindCfms').disabled) window.location.reload(); 
     }
     
     function showAdminLogin() { hideAll(); document.getElementById('adminLoginView').classList.remove('hidden'); }
@@ -191,39 +187,12 @@
       });
     }
 
-    // --- REGISTRATION LOGIC ---
-    async function fetchPosts(event) {
-      const secInput = document.getElementById('regSecNo');
-      const secNo = secInput.value.trim();
-      if (!secNo) return alert("Please enter a Secretariat No");
-      const btn = event.target; const txt = btn.innerText; btn.innerText = "Finding..."; btn.disabled = true;
-      try {
-        const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "fetch_posts", secretariatNo: secNo }), redirect: "follow" });
-        const res = await response.json();
-        if (res.success) {
-          // LOCK THE INPUT
-          secInput.disabled = true;
-          btn.innerText = "Locked";
-          document.getElementById('lockHint').classList.remove('hidden');
-
-          document.getElementById('postSelection').classList.remove('hidden'); document.getElementById('regDetails').classList.add('hidden');
-          document.getElementById('r_secName').value = res.secName;
-          const select = document.getElementById('r_postSelect');
-          select.innerHTML = '<option value="">-- Select Post Name --</option>' + res.posts.map(p => `<option value="${p}">${p}</option>`).join('');
-        } else {
-          btn.innerText = txt; btn.disabled = false;
-          alert(res.message);
-        }
-      } catch (error) { 
-        btn.innerText = txt; btn.disabled = false;
-        alert("Network Connection Error while finding Secretariat."); 
-      }
-    }
-
+    // --- ENHANCED REGISTRATION LOGIC ---
     async function fetchEmpData(event) {
-      const secNo = document.getElementById('regSecNo').value.trim();
-      const postName = document.getElementById('r_postSelect').value;
-      if (!secNo || !postName) return alert("Please select a Post Name.");
+      const cfmsInput = document.getElementById('regCfmsId');
+      const cfmsId = cfmsInput.value.trim();
+      
+      if (!cfmsId) return alert("Please enter your CFMS ID.");
       
       const btn = event.target; const txt = btn.innerText; btn.innerText = "Connecting..."; btn.disabled = true;
 
@@ -231,19 +200,26 @@
       document.getElementById('camTroubleshoot').classList.add('hidden');
       let stream = null;
 
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      } catch (camError) {}
+      try { stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); } catch (camError) {}
 
       try {
-        const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "fetch_emp_data", secretariatNo: secNo, postName: postName }), redirect: "follow" });
+        const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "fetch_emp_data", cfmsId: cfmsId }), redirect: "follow" });
         const res = JSON.parse(await response.text());
         
         if (res.success) {
+          // LOCK INPUTS
+          cfmsInput.disabled = true;
+          btn.innerText = "Locked";
+          document.getElementById('lockHint').classList.remove('hidden');
+          
           document.getElementById('regDetails').classList.remove('hidden');
           document.getElementById('r_candName').value = res.data.candidateName;
-          document.getElementById('r_cfms').value = res.data.cfmsId;
+          document.getElementById('r_dept').value = res.data.department;
+          document.getElementById('r_secNo').value = res.data.secNo;
+          document.getElementById('r_secName').value = res.data.secName;
+          document.getElementById('r_postName').value = res.data.postName;
           document.getElementById('r_phone').value = res.data.phone;
+          document.getElementById('r_remarks').value = res.data.remarks;
           
           if (stream) {
             document.getElementById('regWebcam').srcObject = stream;
@@ -254,12 +230,14 @@
           }
         } else {
           if (stream) stopCameras();
+          btn.innerText = txt; btn.disabled = false;
           alert(res.message);
         }
       } catch (error) { 
         if (stream) stopCameras();
+        btn.innerText = txt; btn.disabled = false;
         alert("🌐 DATABASE ERROR:\n\n" + error.message); 
-      } finally { btn.innerText = txt; btn.disabled = false; }
+      }
     }
 
     async function retryCamera() {
@@ -314,7 +292,7 @@
           action: "self_register", 
           secName: document.getElementById('r_secName').value, 
           candidateName: document.getElementById('r_candName').value,
-          cfmsId: document.getElementById('r_cfms').value, 
+          cfmsId: document.getElementById('regCfmsId').value.trim(), 
           phone: document.getElementById('r_phone').value, 
           password: pass,
           empRequest: document.getElementById('r_request').value,
