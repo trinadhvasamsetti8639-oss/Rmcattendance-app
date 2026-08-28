@@ -27,7 +27,7 @@
       <button onclick="showAdminLogin()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md transition">Admin / Requests Portal</button>
     </div>
 
-    <!-- REGISTRATION VIEW -->
+    <!-- ENHANCED REGISTRATION VIEW -->
     <div id="registrationView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
       <h2 class="text-xl font-bold text-amber-700">Self Registration</h2>
       <div class="flex gap-2">
@@ -327,7 +327,7 @@
         const payload = { action: "self_register", secName: document.getElementById('r_secName').value, candidateName: document.getElementById('r_candName').value, cfmsId: cfmsId, phone: document.getElementById('r_phone').value, email: email, password: pass, empRequest: document.getElementById('r_request').value, faceDescriptor: Array.from(detections[0].descriptor) };
         const res = await apiCall(payload);
         if (res.success) { 
-          alert(`🎉 Successfully Registered!\n\nYour Credentials:\nCFMS ID: ${cfmsId}\nPassword: ${pass}\n\n⚠️ PLEASE SAVE THESE CREDENTIALS NOW! ⚠️\nClick OK only after saving them.`); 
+          alert(`🎉 Registered Successfully!\n\nUser CFMS ID: ${cfmsId}\nPassword: ${pass}\n\n⚠️ Please save these credentials before clicking OK to redirect to the Home page.`); 
           showHome(); 
         } else {
           alert(`${res.message}`);
