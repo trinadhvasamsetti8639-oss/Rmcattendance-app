@@ -147,6 +147,23 @@
 
     let currentUser = null, cameraInstance = null, modelsLoaded = false, livenessVerified = false, capturedPhotoBase64 = null;
 
+    // --- CENTRAL API CALLER (FIXES CORS/LOGIN ERRORS) ---
+    async function apiCall(payload) {
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload),
+          redirect: "follow"
+        });
+        const text = await response.text();
+        return JSON.parse(text);
+      } catch (err) {
+        console.error("API Error:", err);
+        throw new Error("Network connection failed. Please try again.");
+      }
+    }
+
     async function initFaceAPI() {
       if (modelsLoaded) return;
       const prompt = document.getElementById('aiPrompt');
@@ -192,8 +209,7 @@
       try { stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); } catch (err) {}
 
       try {
-        const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "fetch_emp_data", cfmsId: cfmsId }), redirect: "follow" });
-        const res = await response.json();
+        const res = await apiCall({ action: "fetch_emp_data", cfmsId: cfmsId });
         if (res.success) {
           cfmsInput.disabled = true; btn.innerText = "Locked";
           document.getElementById('regDetails').classList.remove('hidden');
@@ -223,11 +239,10 @@
         const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
         if (detections.length === 0) throw new Error("❌ Human face not detected! Look directly at camera.");
         if (detections.length > 1) throw new Error("❌ Multiple faces detected! Only 1 person allowed.");
-        if (detections[0].detection.score < 0.90) throw new Error("❌ Face obscured. Remove masks, heavy glasses, or caps."); // Strict Score
+        if (detections[0].detection.score < 0.90) throw new Error("❌ Face obscured. Remove masks, heavy glasses, or caps."); 
         
         const payload = { action: "self_register", secName: document.getElementById('r_secName').value, candidateName: document.getElementById('r_candName').value, cfmsId: document.getElementById('regCfmsId').value.trim(), phone: document.getElementById('r_phone').value, email: email, password: pass, faceDescriptor: Array.from(detections[0].descriptor) };
-        const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload), redirect: "follow" });
-        const res = await response.json();
+        const res = await apiCall(payload);
         if (res.success) { alert(`🎉 Registration Successful!\nRedirecting to Home.`); showHome(); } else alert(res.message);
       } catch (e) { alert(e.message); } finally { btn.innerText = originalText; btn.disabled = false; }
     }
@@ -238,7 +253,7 @@
       if (!identifier) return;
       alert("Requesting reset... please wait.");
       try {
-        const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "reset_password", type: type, identifier: identifier }) }).then(r=>r.json());
+        const res = await apiCall({ action: "reset_password", type: type, identifier: identifier });
         alert(res.message);
       } catch(e) { alert("Reset Error."); }
     }
@@ -252,7 +267,7 @@
     async function loginAdmin() {
       const u = document.getElementById('adminUser').value, p = document.getElementById('adminPass').value;
       try {
-        const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "admin_login", username: u, password: p }) }).then(r=>r.json());
+        const res = await apiCall({ action: "admin_login", username: u, password: p });
         if (res.success) { 
           hideAll(); document.getElementById('adminDashboardView').classList.remove('hidden'); document.getElementById('logoutBtn').classList.remove('hidden');
           if (res.role === "MAIN") document.getElementById('btnSubAdminTab').classList.remove('hidden');
@@ -262,54 +277,60 @@
     }
 
     async function loadAdminSettings() {
-      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "get_admin_settings" }) }).then(r=>r.json());
-      if(res.success) {
-        document.getElementById('set_active').checked = (res.active === "TRUE");
-        document.getElementById('set_in_start').value = res.inStart; document.getElementById('set_in_end').value = res.inEnd;
-        document.getElementById('set_out_start').value = res.outStart; document.getElementById('set_out_end').value = res.outEnd;
-      }
+      try {
+        const res = await apiCall({ action: "get_admin_settings" });
+        if(res.success) {
+          document.getElementById('set_active').checked = (res.active === "TRUE");
+          document.getElementById('set_in_start').value = res.inStart; document.getElementById('set_in_end').value = res.inEnd;
+          document.getElementById('set_out_start').value = res.outStart; document.getElementById('set_out_end').value = res.outEnd;
+        }
+      } catch (e) {}
     }
+
     async function saveAdminSettings() {
       const payload = { action: "update_admin_settings", active: document.getElementById('set_active').checked ? "TRUE" : "FALSE", inStart: document.getElementById('set_in_start').value, inEnd: document.getElementById('set_in_end').value, outStart: document.getElementById('set_out_start').value, outEnd: document.getElementById('set_out_end').value };
-      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }).then(r=>r.json()); alert(res.message);
+      try { const res = await apiCall(payload); alert(res.message); } catch (e) {}
     }
     
     async function adminPunch(type) {
       const payload = { action: "admin_manual_punch", type: type, cfmsId: document.getElementById('manCfms').value, name: document.getElementById('manName').value, secretariat: document.getElementById('manSec').value };
-      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }).then(r=>r.json()); alert(res.message);
+      try { const res = await apiCall(payload); alert(res.message); } catch (e) {}
     }
 
     async function createSubAdmin() {
       const payload = { action: "create_subadmin", newUsername: document.getElementById('subUser').value, newPassword: document.getElementById('subPass').value, newEmail: document.getElementById('subEmail').value };
-      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }).then(r=>r.json()); alert(res.message);
+      try { const res = await apiCall(payload); alert(res.message); } catch (e) {}
     }
 
     async function loadRequests() {
       const container = document.getElementById('requestsContainer');
-      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "get_requests" }) }).then(r=>r.json());
-      if (res.success && res.requests.length > 0) {
-        container.innerHTML = res.requests.map(r => `
-          <div class="p-3 bg-white border rounded-lg shadow-sm">
-            <b class="text-indigo-900">${r.name} (${r.cfmsId})</b>
-            <p class="mt-1 text-xs"><b>Requested:</b> <i>${r.request}</i></p>
-            <div class="mt-2 space-y-1">
-              <input type="text" id="editN_${r.rowIdx}" value="${r.name}" class="border p-1 w-full text-xs">
-              <input type="text" id="editE_${r.rowIdx}" placeholder="New Email" class="border p-1 w-full text-xs">
-              <input type="text" id="editP_${r.rowIdx}" placeholder="New Phone" class="border p-1 w-full text-xs">
-              <button onclick="saveEdit(${r.rowIdx}, '${r.cfmsId}')" class="bg-indigo-600 text-white px-2 py-1 rounded w-full">Update DB & Resolve</button>
-            </div>
-          </div>`).join('');
-      } else container.innerHTML = "<p class='text-slate-500'>No pending requests.</p>";
+      try {
+        const res = await apiCall({ action: "get_requests" });
+        if (res.success && res.requests.length > 0) {
+          container.innerHTML = res.requests.map(r => `
+            <div class="p-3 bg-white border rounded-lg shadow-sm">
+              <b class="text-indigo-900">${r.name} (${r.cfmsId})</b>
+              <p class="mt-1 text-xs"><b>Requested:</b> <i>${r.request}</i></p>
+              <div class="mt-2 space-y-1">
+                <input type="text" id="editN_${r.rowIdx}" value="${r.name}" class="border p-1 w-full text-xs">
+                <input type="text" id="editE_${r.rowIdx}" placeholder="New Email" class="border p-1 w-full text-xs">
+                <input type="text" id="editP_${r.rowIdx}" placeholder="New Phone" class="border p-1 w-full text-xs">
+                <button onclick="saveEdit(${r.rowIdx}, '${r.cfmsId}')" class="bg-indigo-600 text-white px-2 py-1 rounded w-full">Update DB & Resolve</button>
+              </div>
+            </div>`).join('');
+        } else container.innerHTML = "<p class='text-slate-500'>No pending requests.</p>";
+      } catch (e) {}
     }
+
     async function saveEdit(idx, cfms) {
       const payload = { action: "edit_employee", reqRowIdx: idx, cfmsId: cfms, newName: document.getElementById(`editN_${idx}`).value, newEmail: document.getElementById(`editE_${idx}`).value, newPhone: document.getElementById(`editP_${idx}`).value };
-      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }).then(r=>r.json()); alert(res.message); loadRequests();
+      try { const res = await apiCall(payload); alert(res.message); loadRequests(); } catch (e) {}
     }
 
     // --- EMPLOYEE ATTENDANCE LOGIC ---
     async function loginEmployee() {
       try {
-        const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "emp_login", cfmsId: document.getElementById('empCfms').value, password: document.getElementById('empPass').value }) }).then(r=>r.json());
+        const res = await apiCall({ action: "emp_login", cfmsId: document.getElementById('empCfms').value, password: document.getElementById('empPass').value });
         if (res.success) {
           currentUser = res.user; hideAll(); document.getElementById('empCaptureView').classList.remove('hidden'); document.getElementById('logoutBtn').classList.remove('hidden'); document.getElementById('empWelcome').innerText = `${currentUser.name} (${currentUser.cfmsId})`;
           
@@ -335,7 +356,6 @@
           livenessVerified = true; prompt.innerText = "Blink Verified! Matching Identity...";
           const detection = await faceapi.detectSingleFace(videoElement).withFaceLandmarks().withFaceDescriptor();
           
-          // STRICT MATCH (Distance < 0.48 to prevent false positives and masks)
           if (detection && faceapi.euclideanDistance(detection.descriptor, new Float32Array(currentUser.faceDescriptor)) < 0.48) {
              prompt.innerText = "✅ Identity Verified! Select IN/OUT"; prompt.className = "absolute bottom-3 bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-full";
              const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 480; const ctx = canvas.getContext('2d'); ctx.translate(480, 0); ctx.scale(-1, 1); ctx.drawImage(videoElement, 0, 0, 480, 480);
@@ -357,7 +377,7 @@
       const txt = btn.innerText; btn.innerText = "Submitting..."; btn.disabled = true;
       try {
         const payload = { action: "mark_attendance", type: type, cfmsId: currentUser.cfmsId, name: currentUser.name, secretariat: currentUser.secretariat, photoBase64: capturedPhotoBase64 };
-        const res = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) }).then(r=>r.json());
+        const res = await apiCall(payload);
         if (res.success) { alert(res.message); logout(); } else { alert(res.message); btn.innerText = txt; btn.disabled = false; }
       } catch (err) { alert("Network error."); btn.innerText = txt; btn.disabled = false;}
     }
