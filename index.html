@@ -37,34 +37,24 @@
       <p id="lockHint" class="hidden text-xs text-slate-500 text-center mt-1">CFMS ID Locked. Refresh page to change.</p>
 
       <div id="regDetails" class="hidden space-y-2 text-sm mt-2 border-t pt-4">
-        
-        <!-- Fetched Database Details -->
         <div class="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm">
           <h3 class="font-bold text-slate-800 text-xs uppercase border-b pb-1">Fetched Database Details</h3>
-          
           <div><label class="text-[10px] text-slate-500 font-bold uppercase">Candidate Name</label>
           <input type="text" id="r_candName" readonly class="w-full p-2 bg-white rounded border border-slate-300 font-bold text-indigo-900 text-sm"></div>
-          
           <div><label class="text-[10px] text-slate-500 font-bold uppercase">Department</label>
           <input type="text" id="r_dept" readonly class="w-full p-2 bg-white rounded border border-slate-300 text-sm text-slate-700"></div>
-          
           <div><label class="text-[10px] text-slate-500 font-bold uppercase">Secretariat No</label>
           <input type="text" id="r_secNo" readonly class="w-full p-2 bg-white rounded border border-slate-300 text-sm text-slate-700"></div>
-          
           <div><label class="text-[10px] text-slate-500 font-bold uppercase">Secretariat Name</label>
           <input type="text" id="r_secName" readonly class="w-full p-2 bg-white rounded border border-slate-300 text-sm text-slate-700"></div>
-          
           <div><label class="text-[10px] text-slate-500 font-bold uppercase">Post Name</label>
           <input type="text" id="r_postName" readonly class="w-full p-2 bg-white rounded border border-slate-300 text-sm font-semibold text-slate-700"></div>
-          
           <div><label class="text-[10px] text-slate-500 font-bold uppercase">Phone No</label>
           <input type="text" id="r_phone" readonly class="w-full p-2 bg-white rounded border border-slate-300 text-sm text-slate-700"></div>
-          
           <div><label class="text-[10px] text-slate-500 font-bold uppercase">Office Remarks</label>
           <input type="text" id="r_remarks" readonly class="w-full p-2 bg-white rounded border border-slate-300 text-sm text-slate-700"></div>
         </div>
         
-        <!-- User Input Requirements -->
         <div class="mt-4 p-3 border-2 border-blue-200 bg-blue-50 rounded-lg space-y-3">
           <h3 class="font-bold text-blue-900 text-xs">Security Setup (Required)</h3>
           <div>
@@ -81,15 +71,10 @@
           </div>
         </div>
         
-        <!-- Camera UI -->
         <div id="camTroubleshoot" class="hidden bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg mt-2 text-xs space-y-2">
           <p class="font-bold text-red-900">⚠️ Camera Hardware Blocked</p>
-          <p>Your OS is denying camera access. To fix this:</p>
-          <ul class="list-disc pl-4 space-y-1">
-            <li>Close <b>Zoom, MS Teams, Skype</b>, or Webex.</li>
-            <li>Close any other browser tabs using the camera.</li>
-          </ul>
-          <button onclick="retryCamera()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded shadow mt-2">I have closed them. Retry Camera.</button>
+          <ul class="list-disc pl-4 space-y-1"><li>Close Zoom, MS Teams, Skype, or Webex.</li><li>Close any other browser tabs using the camera.</li></ul>
+          <button onclick="retryCamera()" class="w-full py-2 bg-red-600 text-white font-bold rounded shadow mt-2">I have closed them. Retry Camera.</button>
         </div>
 
         <div class="relative w-full aspect-square bg-black rounded-xl overflow-hidden mt-4 flex items-center justify-center border-4 border-slate-800 shadow-lg">
@@ -97,7 +82,7 @@
           <div id="regPrompt" class="absolute bottom-3 bg-black/75 text-white text-xs px-3 py-1.5 rounded-full font-semibold text-center border border-white/20">Align face for AI Scan</div>
         </div>
         
-        <button onclick="registerWithFace(event)" class="w-full py-4 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl mt-2 shadow-lg transition text-lg">Scan Face & Register System</button>
+        <button onclick="registerWithFace(event)" class="w-full py-4 bg-amber-600 text-white font-bold rounded-xl mt-2 shadow-lg transition text-lg">Scan Face & Register System</button>
       </div>
       <button onclick="showHome()" class="w-full text-slate-500 text-sm font-medium mt-4 border border-slate-300 py-2 rounded-lg bg-white">Cancel & Go Back</button>
     </div>
@@ -116,33 +101,49 @@
     <div id="adminDashboardView" class="hidden space-y-4 mt-4">
       <div class="flex flex-wrap gap-2 text-xs">
         <button onclick="switchTab('tabSettings')" class="bg-indigo-600 text-white px-3 py-2 rounded shadow">Control</button>
-        <button onclick="switchTab('tabPunch')" class="bg-slate-200 px-3 py-2 rounded shadow">Manual Punch</button>
+        <button onclick="switchTab('tabPunch')" class="bg-slate-200 px-3 py-2 rounded shadow">AI Admin Punch</button>
         <button onclick="switchTab('tabRequests')" class="bg-slate-200 px-3 py-2 rounded shadow">Requests</button>
         <button id="btnSubAdminTab" onclick="switchTab('tabSubAdmin')" class="bg-slate-200 px-3 py-2 rounded shadow hidden">Sub-Admins</button>
       </div>
 
       <div id="tabSettings" class="glass p-5 rounded-2xl shadow space-y-3">
-        <h3 class="font-bold text-indigo-900 border-b pb-2">Attendance Time Control</h3>
+        <h3 class="font-bold text-indigo-900 border-b pb-2">Attendance Target Control</h3>
         <label class="flex items-center gap-2 font-semibold text-sm">
-          <input type="checkbox" id="set_active" class="w-4 h-4"> Allow System Punches
+          <input type="checkbox" id="set_active" class="w-4 h-4"> Unlock System For Employees
         </label>
-        <div class="grid grid-cols-2 gap-2 text-sm mt-2">
-          <div><label>IN Start</label><input type="time" id="set_in_start" class="w-full p-2 border rounded"></div>
-          <div><label>IN End</label><input type="time" id="set_in_end" class="w-full p-2 border rounded"></div>
-          <div><label>OUT Start</label><input type="time" id="set_out_start" class="w-full p-2 border rounded"></div>
-          <div><label>OUT End</label><input type="time" id="set_out_end" class="w-full p-2 border rounded"></div>
+        <div>
+          <label class="text-xs font-bold text-slate-700">Target Attendance Date</label>
+          <input type="date" id="set_att_date" class="w-full p-2 border rounded">
         </div>
-        <button onclick="saveAdminSettings()" class="w-full py-2 bg-indigo-600 text-white font-semibold rounded-lg mt-2">Save Rules</button>
+        <div class="grid grid-cols-2 gap-2 text-sm mt-2">
+          <div><label class="text-xs font-bold text-slate-700">IN Start</label><input type="time" id="set_in_start" class="w-full p-2 border rounded"></div>
+          <div><label class="text-xs font-bold text-slate-700">IN End</label><input type="time" id="set_in_end" class="w-full p-2 border rounded"></div>
+          <div><label class="text-xs font-bold text-slate-700">OUT Start</label><input type="time" id="set_out_start" class="w-full p-2 border rounded"></div>
+          <div><label class="text-xs font-bold text-slate-700">OUT End</label><input type="time" id="set_out_end" class="w-full p-2 border rounded"></div>
+        </div>
+        <button onclick="saveAdminSettings()" class="w-full py-2 bg-indigo-600 text-white font-semibold rounded-lg mt-2 shadow">Apply Security Lock</button>
       </div>
 
+      <!-- NEW: AI ADMIN MANUAL PUNCH -->
       <div id="tabPunch" class="glass p-5 rounded-2xl shadow space-y-3 hidden">
-        <h3 class="font-bold text-indigo-900 border-b pb-2">Direct Manual Punch</h3>
-        <input type="text" id="manCfms" placeholder="Employee CFMS ID" class="w-full p-2 border rounded">
-        <input type="text" id="manName" placeholder="Employee Name" class="w-full p-2 border rounded">
-        <input type="text" id="manSec" placeholder="Secretariat" class="w-full p-2 border rounded">
-        <div class="flex gap-2 mt-2">
-          <button onclick="adminPunch('IN')" class="w-full py-2 bg-emerald-600 text-white font-bold rounded">Force IN</button>
-          <button onclick="adminPunch('OUT')" class="w-full py-2 bg-red-600 text-white font-bold rounded">Force OUT</button>
+        <h3 class="font-bold text-indigo-900 border-b pb-2">Admin Authorized Facial Punch</h3>
+        <div class="flex gap-2">
+          <input type="text" id="adminManCfms" placeholder="Employee CFMS ID" class="w-full p-2 border rounded text-sm">
+          <button onclick="fetchAdminManualFace()" class="bg-amber-500 text-white px-3 text-sm font-bold rounded">Fetch</button>
+        </div>
+        
+        <div id="adminManualDetails" class="hidden space-y-2 mt-2 border-t pt-2">
+          <p id="adminManInfo" class="text-sm font-bold text-indigo-900 bg-indigo-50 p-2 rounded"></p>
+          
+          <div class="relative w-full aspect-square bg-black rounded-xl overflow-hidden mt-2 flex items-center justify-center border-2 border-slate-800">
+            <video id="adminWebcam" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
+            <div id="adminAiPrompt" class="absolute bottom-2 bg-black/75 text-white text-xs px-2 py-1 rounded-full font-semibold">Align face for AI Scan</div>
+          </div>
+          
+          <div class="flex gap-2 mt-2">
+            <button id="btnAdminIn" onclick="submitAdminPunch('IN')" disabled class="w-full py-2 bg-emerald-600 disabled:bg-slate-400 text-white font-bold rounded transition">Force IN</button>
+            <button id="btnAdminOut" onclick="submitAdminPunch('OUT')" disabled class="w-full py-2 bg-red-600 disabled:bg-slate-400 text-white font-bold rounded transition">Force OUT</button>
+          </div>
         </div>
       </div>
 
@@ -185,14 +186,10 @@
         <button id="btnIn" onclick="punchAttendance('IN')" disabled class="py-3 bg-emerald-600 disabled:bg-slate-400 text-white font-bold rounded-xl shadow transition">Punch IN</button>
         <button id="btnOut" onclick="punchAttendance('OUT')" disabled class="py-3 bg-red-600 disabled:bg-slate-400 text-white font-bold rounded-xl shadow transition">Punch OUT</button>
       </div>
-      <button onclick="showHome()" class="w-full text-slate-500 text-sm font-medium border p-2 rounded bg-white mt-2">Cancel & Logout</button>
+      <button onclick="logout()" class="w-full text-slate-500 text-sm font-medium border p-2 rounded bg-white mt-2">Cancel & Logout</button>
     </div>
 
   </main>
-
-  <footer class="text-center p-4 text-xs text-slate-500 font-medium">
-    AI Real-Time Eye Blink Liveness & Geofencing Protected
-  </footer>
 
   <script>
     // ⚠️ UPDATE THIS LINK ⚠️
@@ -200,107 +197,83 @@
 
     let currentUser = null, cameraInstance = null, modelsLoaded = false, livenessVerified = false, capturedPhotoBase64 = null;
     let currentCoords = { lat: 0, lng: 0 }, isGeofenceValid = false;
+    
+    // Admin specific vars
+    let adminPunchTarget = null, adminCameraInstance = null, adminCapturedPhotoBase64 = null;
 
-    // --- CENTRAL API CALLER ---
     async function apiCall(payload) {
       try {
-        const response = await fetch(SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload),
-          redirect: "follow"
-        });
-        const text = await response.text();
-        return JSON.parse(text);
-      } catch (err) {
-        throw new Error("Network connection failed. Please try again.");
-      }
+        const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload), redirect: "follow" });
+        return JSON.parse(await response.text());
+      } catch (err) { throw new Error("Network connection failed."); }
     }
 
     async function initFaceAPI() {
       if (modelsLoaded) return;
-      const prompt = document.getElementById('aiPrompt');
-      if (prompt) prompt.innerText = "Downloading Face Models...";
-      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
       try {
-        await Promise.all([
-          faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ]);
+        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+        await Promise.all([faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL), faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL), faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)]);
         modelsLoaded = true;
-      } catch (err) { alert("Error loading AI models."); }
+      } catch (err) {}
     }
 
-    function hideAll() {
-      ['roleView','registrationView','adminLoginView','adminDashboardView','empLoginView','empCaptureView'].forEach(id => document.getElementById(id).classList.add('hidden'));
-    }
-
+    function hideAll() { ['roleView','registrationView','adminLoginView','adminDashboardView','empLoginView','empCaptureView'].forEach(id => document.getElementById(id).classList.add('hidden')); }
     function showHome() { hideAll(); document.getElementById('roleView').classList.remove('hidden'); stopCameras(); if (document.getElementById('btnFindCfms').disabled) window.location.reload(); }
     function showAdminLogin() { hideAll(); document.getElementById('adminLoginView').classList.remove('hidden'); }
     function showEmpLogin() { hideAll(); document.getElementById('empLoginView').classList.remove('hidden'); initFaceAPI(); }
     function showRegistration() { hideAll(); document.getElementById('registrationView').classList.remove('hidden'); initFaceAPI(); }
-    function logout() { currentUser = null; stopCameras(); showHome(); }
+    
+    // Wipes all Session variables & UI locks
+    function logout() { 
+      currentUser = null; isGeofenceValid = false; livenessVerified = false; capturedPhotoBase64 = null; currentCoords = { lat: 0, lng: 0 };
+      adminPunchTarget = null; adminCapturedPhotoBase64 = null;
+      if(document.getElementById('btnIn')) { document.getElementById('btnIn').disabled = true; document.getElementById('btnIn').innerText = "Punch IN"; }
+      if(document.getElementById('btnOut')) { document.getElementById('btnOut').disabled = true; document.getElementById('btnOut').innerText = "Punch OUT"; }
+      if(document.getElementById('aiPrompt')) document.getElementById('aiPrompt').innerText = "Initializing AI...";
+      stopCameras(); showHome(); 
+    }
 
     function stopCameras() {
       if (cameraInstance) { cameraInstance.stop(); cameraInstance = null; }
-      ['regWebcam', 'webcam'].forEach(id => {
+      if (adminCameraInstance) { adminCameraInstance.stop(); adminCameraInstance = null; }
+      ['regWebcam', 'webcam', 'adminWebcam'].forEach(id => {
         const vid = document.getElementById(id);
         if (vid && vid.srcObject) { vid.srcObject.getTracks().forEach(t => t.stop()); vid.srcObject = null; }
       });
     }
 
     async function fetchEmpData(event) {
-      const cfmsInput = document.getElementById('regCfmsId');
-      const cfmsId = cfmsInput.value.trim();
+      const cfmsId = document.getElementById('regCfmsId').value.trim();
       if (!cfmsId) return alert("Please enter your CFMS ID.");
       const btn = event.target; const txt = btn.innerText; btn.innerText = "Connecting..."; btn.disabled = true;
-
       stopCameras();
-      let stream = null;
-      try { stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); } catch (err) {}
+      let stream = null; try { stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); } catch (err) {}
 
       try {
         const res = await apiCall({ action: "fetch_emp_data", cfmsId: cfmsId });
         if (res.success) {
-          cfmsInput.disabled = true; btn.innerText = "Locked";
-          document.getElementById('lockHint').classList.remove('hidden');
-          document.getElementById('regDetails').classList.remove('hidden');
+          document.getElementById('regCfmsId').disabled = true; btn.innerText = "Locked";
+          document.getElementById('lockHint').classList.remove('hidden'); document.getElementById('regDetails').classList.remove('hidden');
           
-          document.getElementById('r_candName').value = res.data.candidateName;
-          document.getElementById('r_dept').value = res.data.department;
-          document.getElementById('r_secNo').value = res.data.secNo;
-          document.getElementById('r_secName').value = res.data.secName;
-          document.getElementById('r_postName').value = res.data.postName;
-          document.getElementById('r_phone').value = res.data.phone;
+          document.getElementById('r_candName').value = res.data.candidateName; document.getElementById('r_dept').value = res.data.department;
+          document.getElementById('r_secNo').value = res.data.secNo; document.getElementById('r_secName').value = res.data.secName;
+          document.getElementById('r_postName').value = res.data.postName; document.getElementById('r_phone').value = res.data.phone;
           document.getElementById('r_remarks').value = res.data.remarks;
           
-          if (stream) {
-            document.getElementById('regWebcam').srcObject = stream;
-            document.getElementById('regPrompt').innerText = "Align face for AI Scan";
-          } else {
-            document.getElementById('camTroubleshoot').classList.remove('hidden');
-            document.getElementById('regPrompt').innerText = "❌ Camera Blocked";
-          }
-        } else {
-          if (stream) stopCameras(); btn.innerText = txt; btn.disabled = false; alert(res.message);
-        }
+          if (stream) document.getElementById('regWebcam').srcObject = stream;
+          else document.getElementById('camTroubleshoot').classList.remove('hidden');
+        } else { if (stream) stopCameras(); btn.innerText = txt; btn.disabled = false; alert(res.message); }
       } catch (error) { btn.innerText = txt; btn.disabled = false; alert("Error: " + error.message); }
     }
 
     async function retryCamera() {
       stopCameras();
-      const btn = document.querySelector('#camTroubleshoot button');
-      btn.innerText = "Testing Camera..."; btn.disabled = true;
-
+      const btn = document.querySelector('#camTroubleshoot button'); btn.innerText = "Testing Camera..."; btn.disabled = true;
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         document.getElementById('regWebcam').srcObject = stream;
-        document.getElementById('regPrompt').innerText = "Align face for AI Scan";
         document.getElementById('camTroubleshoot').classList.add('hidden');
-      } catch (camError) {
-        btn.innerText = "Camera Still Locked. Retry Again."; btn.disabled = false;
-      }
+      } catch (camError) { btn.innerText = "Camera Still Locked. Retry Again."; btn.disabled = false; }
     }
 
     async function registerWithFace(event) {
@@ -325,19 +298,24 @@
         
         const payload = { action: "self_register", secName: document.getElementById('r_secName').value, candidateName: document.getElementById('r_candName').value, cfmsId: cfmsId, phone: document.getElementById('r_phone').value, email: email, password: pass, empRequest: document.getElementById('r_request').value, faceDescriptor: Array.from(detections[0].descriptor) };
         const res = await apiCall(payload);
-        if (res.success) { 
-          alert(`🎉 Registered Successfully!\n\nUser CFMS ID: ${cfmsId}\nPassword: ${pass}\n\n⚠️ Please save these credentials before clicking OK to redirect to the Home page.`); 
-          showHome(); 
-        } else {
-          alert(`${res.message}`);
-        }
-      } catch (e) { alert(e.message); document.getElementById('regPrompt').innerText = "Align face for AI Scan"; } finally { btn.innerText = originalText; btn.disabled = false; }
+        if (res.success) { alert(`🎉 Registered Successfully!\n\nUser CFMS ID: ${cfmsId}\nPassword: ${pass}\n\n⚠️ Please save these credentials before clicking OK.`); showHome(); } 
+        else { alert(`${res.message}`); document.getElementById('regPrompt').innerText = "Align face for AI Scan"; }
+      } catch (e) { alert(e.message); document.getElementById('regPrompt').innerText = "Align face for AI Scan"; } 
+      finally { btn.innerText = originalText; btn.disabled = false; }
+    }
+
+    async function resetPassword(type) {
+      const identifier = prompt(`Enter your ${type === 'ADMIN' ? 'Username' : 'CFMS ID'} to receive a new password via email:`);
+      if (!identifier) return;
+      alert("Requesting reset... please wait.");
+      try { const res = await apiCall({ action: "reset_password", type: type, identifier: identifier }); alert(res.message); } catch(e) { alert("Reset Error."); }
     }
 
     // --- ADMIN LOGIC ---
     function switchTab(tabId) {
       ['tabSettings','tabPunch','tabRequests','tabSubAdmin'].forEach(id => document.getElementById(id).classList.add('hidden'));
       document.getElementById(tabId).classList.remove('hidden');
+      stopCameras(); // Turn off Admin camera if switching tabs
     }
 
     async function loginAdmin() {
@@ -345,7 +323,7 @@
       try {
         const res = await apiCall({ action: "admin_login", username: u, password: p });
         if (res.success) { 
-          hideAll(); document.getElementById('adminDashboardView').classList.remove('hidden'); 
+          hideAll(); document.getElementById('adminDashboardView').classList.remove('hidden'); initFaceAPI();
           if (res.role === "MAIN") document.getElementById('btnSubAdminTab').classList.remove('hidden');
           loadAdminSettings(); loadRequests();
         } else alert(res.message);
@@ -357,6 +335,7 @@
         const res = await apiCall({ action: "get_admin_settings" });
         if(res.success) {
           document.getElementById('set_active').checked = (res.active === "TRUE");
+          document.getElementById('set_att_date').value = res.attDate;
           document.getElementById('set_in_start').value = res.inStart; document.getElementById('set_in_end').value = res.inEnd;
           document.getElementById('set_out_start').value = res.outStart; document.getElementById('set_out_end').value = res.outEnd;
         }
@@ -364,13 +343,91 @@
     }
 
     async function saveAdminSettings() {
-      const payload = { action: "update_admin_settings", active: document.getElementById('set_active').checked ? "TRUE" : "FALSE", inStart: document.getElementById('set_in_start').value, inEnd: document.getElementById('set_in_end').value, outStart: document.getElementById('set_out_start').value, outEnd: document.getElementById('set_out_end').value };
+      const payload = { action: "update_admin_settings", active: document.getElementById('set_active').checked ? "TRUE" : "FALSE", attDate: document.getElementById('set_att_date').value, inStart: document.getElementById('set_in_start').value, inEnd: document.getElementById('set_in_end').value, outStart: document.getElementById('set_out_start').value, outEnd: document.getElementById('set_out_end').value };
       try { const res = await apiCall(payload); alert(res.message); } catch (e) {}
     }
     
-    async function adminPunch(type) {
-      const payload = { action: "admin_manual_punch", type: type, cfmsId: document.getElementById('manCfms').value, name: document.getElementById('manName').value, secretariat: document.getElementById('manSec').value };
+    // Admin Artificial AI Punch
+    async function fetchAdminManualFace() {
+      const cfmsId = document.getElementById('adminManCfms').value.trim();
+      if (!cfmsId) return alert("Enter CFMS ID");
+      stopCameras();
+      try {
+        const res = await apiCall({ action: "admin_fetch_face", cfmsId: cfmsId });
+        if (res.success) {
+          adminPunchTarget = res.data;
+          document.getElementById('adminManualDetails').classList.remove('hidden');
+          document.getElementById('adminManInfo').innerText = `Target: ${res.data.name} (${res.data.cfmsId}) - ${res.data.secretariat}`;
+          
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          document.getElementById('adminWebcam').srcObject = stream;
+          startAdminAI();
+        } else alert(res.message);
+      } catch (err) { alert("Failed to fetch target."); }
+    }
+
+    function startAdminAI() {
+      const videoElement = document.getElementById('adminWebcam'), prompt = document.getElementById('adminAiPrompt');
+      const faceMesh = new FaceMesh({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
+      faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
+      
+      faceMesh.onResults(async (results) => {
+        if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) return prompt.innerText = "No Face Detected";
+        const detection = await faceapi.detectSingleFace(videoElement).withFaceLandmarks().withFaceDescriptor();
+        
+        if (detection && faceapi.euclideanDistance(detection.descriptor, new Float32Array(adminPunchTarget.faceDescriptor)) < 0.48) {
+           prompt.innerText = "✅ Face Matched! Ready to Punch"; prompt.className = "absolute bottom-2 bg-emerald-600 text-white text-xs px-2 py-1 rounded-full";
+           const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 480; const ctx = canvas.getContext('2d'); ctx.translate(480, 0); ctx.scale(-1, 1); ctx.drawImage(videoElement, 0, 0, 480, 480);
+           adminCapturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
+           document.getElementById('btnAdminIn').disabled = false; document.getElementById('btnAdminOut').disabled = false;
+        } else { 
+           prompt.innerText = "❌ Face Mismatch or Mask Detected!"; prompt.className = "absolute bottom-2 bg-red-600 text-white text-xs px-2 py-1 rounded-full"; 
+           document.getElementById('btnAdminIn').disabled = true; document.getElementById('btnAdminOut').disabled = true;
+        }
+      });
+      adminCameraInstance = new Camera(videoElement, { onFrame: async () => { await faceMesh.send({ image: videoElement }); }, width: 480, height: 480 });
+      adminCameraInstance.start();
+    }
+
+    async function submitAdminPunch(type) {
+      const payload = { action: "admin_manual_punch", type: type, cfmsId: adminPunchTarget.cfmsId, name: adminPunchTarget.name, secretariat: adminPunchTarget.secretariat, photoBase64: adminCapturedPhotoBase64 };
+      const res = await apiCall(payload);
+      if (res.success) {
+        alert(`CFMSID ${adminPunchTarget.cfmsId} And Name ${adminPunchTarget.name} Marked Attendance Successfully`);
+        document.getElementById('adminManualDetails').classList.add('hidden');
+        document.getElementById('adminManCfms').value = '';
+        stopCameras();
+      } else alert(res.message);
+    }
+
+    async function createSubAdmin() {
+      const payload = { action: "create_subadmin", newUsername: document.getElementById('subUser').value, newPassword: document.getElementById('subPass').value, newEmail: document.getElementById('subEmail').value };
       try { const res = await apiCall(payload); alert(res.message); } catch (e) {}
+    }
+
+    async function loadRequests() {
+      const container = document.getElementById('requestsContainer');
+      try {
+        const res = await apiCall({ action: "get_requests" });
+        if (res.success && res.requests.length > 0) {
+          container.innerHTML = res.requests.map(r => `
+            <div class="p-3 bg-white border rounded-lg shadow-sm">
+              <b class="text-indigo-900">${r.name} (${r.cfmsId})</b>
+              <p class="mt-1 text-xs mb-2"><b>Requested:</b> <i>${r.request}</i></p>
+              <div class="space-y-1">
+                <input type="text" id="editN_${r.rowIdx}" value="${r.name}" class="border p-1 w-full text-xs">
+                <input type="text" id="editE_${r.rowIdx}" placeholder="New Email" class="border p-1 w-full text-xs">
+                <input type="text" id="editP_${r.rowIdx}" placeholder="New Phone" class="border p-1 w-full text-xs">
+                <button onclick="saveEdit(${r.rowIdx}, '${r.cfmsId}')" class="bg-indigo-600 text-white px-2 py-1 rounded w-full mt-2">Update DB & Resolve</button>
+              </div>
+            </div>`).join('');
+        } else container.innerHTML = "<p class='text-slate-500'>No pending requests.</p>";
+      } catch (e) {}
+    }
+
+    async function saveEdit(idx, cfms) {
+      const payload = { action: "edit_employee", reqRowIdx: idx, cfmsId: cfms, newName: document.getElementById(`editN_${idx}`).value, newEmail: document.getElementById(`editE_${idx}`).value, newPhone: document.getElementById(`editP_${idx}`).value };
+      try { const res = await apiCall(payload); alert(res.message); loadRequests(); } catch (e) {}
     }
 
     // --- EMPLOYEE ATTENDANCE LOGIC ---
@@ -384,6 +441,7 @@
       } catch (err) { alert("Login error."); }
     }
 
+    // Geofence check acts as absolute gatekeeper before AI starts
     function verifyLocationAndInitCamera() {
       const geoStatus = document.getElementById('geoStatus'); geoStatus.innerText = "Checking GPS Location...";
       navigator.geolocation.getCurrentPosition(async pos => {
@@ -391,32 +449,24 @@
         try {
           const res = await apiCall({ action: "get_geofence", secretariat: currentUser.secretariat });
           if (res.success && res.geofence) {
-            
-            // Explicitly map geofence text to numbers to prevent mathematical exceptions
-            const lat2 = parseFloat(res.geofence.lat);
-            const lng2 = parseFloat(res.geofence.lng);
-            const radius = parseFloat(res.geofence.radius);
-            
+            const lat2 = parseFloat(res.geofence.lat), lng2 = parseFloat(res.geofence.lng), radius = parseFloat(res.geofence.radius);
             const R = 6371e3, φ1 = currentCoords.lat*Math.PI/180, φ2 = lat2*Math.PI/180;
-            const dLat = (lat2-currentCoords.lat)*Math.PI/180;
-            const dLng = (lng2-currentCoords.lng)*Math.PI/180;
-            
+            const dLat = (lat2-currentCoords.lat)*Math.PI/180, dLng = (lng2-currentCoords.lng)*Math.PI/180;
             const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(dLng/2) * Math.sin(dLng/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            const dist = R * c;
+            const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
             if (dist <= radius) {
               isGeofenceValid = true; geoStatus.innerText = `Verified: Inside ${currentUser.secretariat}`; geoStatus.className = "text-xs font-semibold text-emerald-600"; startAI();
             } else {
-              isGeofenceValid = false; geoStatus.innerText = `Outside Geofence: ${Math.round(dist)}m away`; geoStatus.className = "text-xs font-semibold text-red-600"; alert("Outside designated geofence!");
+              isGeofenceValid = false; 
+              geoStatus.innerText = `Outside Geofence: ${Math.round(dist)}m away`; geoStatus.className = "text-xs font-semibold text-red-600"; 
+              document.getElementById('aiPrompt').innerText = "❌ Geofence Failed. AI Locked.";
+              alert("Outside designated geofence! Cannot mark attendance.");
             }
           } else {
             isGeofenceValid = true; geoStatus.innerText = "No Geofence Set. Starting AI..."; startAI();
           }
-        } catch (e) { 
-          geoStatus.innerText = "Geofence Error: " + e.message; 
-          geoStatus.className = "text-xs font-semibold text-red-600";
-        }
+        } catch (e) { geoStatus.innerText = "Geofence verify error."; geoStatus.className = "text-xs font-semibold text-red-600"; }
       }, err => { geoStatus.innerText = "Error reading GPS: " + err.message; }, { enableHighAccuracy: true });
     }
 
@@ -426,9 +476,7 @@
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         videoElement.srcObject = stream;
-      } catch (e) {
-        return prompt.innerText = "Camera Access Blocked";
-      }
+      } catch (e) { return prompt.innerText = "Camera Access Blocked"; }
 
       const faceMesh = new FaceMesh({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
       faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
@@ -466,7 +514,10 @@
       try {
         const payload = { action: "mark_attendance", type: type, cfmsId: currentUser.cfmsId, name: currentUser.name, secretariat: currentUser.secretariat, photoBase64: capturedPhotoBase64, lat: currentCoords.lat, lng: currentCoords.lng };
         const res = await apiCall(payload);
-        if (res.success) { alert(res.message); logout(); } else { alert(res.message); btn.innerText = txt; btn.disabled = false; }
+        if (res.success) { 
+          alert(`User With CFMSID ${currentUser.cfmsId} and Name ${currentUser.name} Successfully Marked ${type} time.`); 
+          logout(); // Entirely wipes session variables and goes to Home
+        } else { alert(res.message); btn.innerText = txt; btn.disabled = false; }
       } catch (err) { alert("Network error."); btn.innerText = txt; btn.disabled = false;}
     }
   </script>
