@@ -39,7 +39,7 @@
       <p id="lockHint" class="hidden text-xs text-slate-500 text-center mt-1">CFMS ID Locked. Refresh page to change.</p>
 
       <div id="regDetails" class="hidden space-y-2 text-sm mt-4 border-t pt-4">
-        <!-- New Read-Only Fields populated from CFMS search -->
+        <!-- Read-Only Fields populated from CFMS search -->
         <input type="text" id="r_candName" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Candidate Name">
         <input type="text" id="r_dept" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Department">
         <input type="text" id="r_secNo" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Secretariat No">
@@ -306,13 +306,15 @@
           alert(`🎉 Registration Successful!\n\nCandidate: ${payload.candidateName}\nCFMS ID: ${payload.cfmsId}\nPassword: ${payload.password}\n\nPlease keep your password safe! Redirecting to Home Page.`); 
           showHome(); 
         } else {
-          alert(`Registration Failed:\n${res.message}`);
+          // This will now pop up if the exact same face is found on another CFMS ID
+          alert(`${res.message}`);
         }
       } catch (e) { 
         alert(e.message || "Registration network error."); 
       } finally {
         btn.innerText = originalText;
         btn.disabled = false;
+        document.getElementById('regPrompt').innerText = "Align face for Registration";
       }
     }
 
