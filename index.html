@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AI Face Attendance System</title>
+  <title>RMC HR Management</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
@@ -13,13 +13,12 @@
 <body class="bg-slate-900 text-slate-800 min-h-screen flex flex-col justify-between">
 
   <header class="bg-indigo-700 text-white p-4 shadow-md text-center font-bold text-lg flex justify-between items-center">
-    <span>AI Attendance Hub</span>
+    <span>RMC HR Management System</span>
     <button id="logoutBtn" onclick="logout()" class="hidden text-xs bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg shadow transition">Logout</button>
   </header>
 
   <main class="container mx-auto p-4 max-w-md flex-1">
 
-    <!-- ROLE SELECTOR -->
     <div id="roleView" class="glass p-6 rounded-2xl shadow-xl mt-8 text-center space-y-4">
       <h2 class="text-xl font-bold text-indigo-900">Select Portal</h2>
       <button onclick="showRegistration()" class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl shadow-md transition">Employee Self Registration</button>
@@ -27,7 +26,6 @@
       <button onclick="showAdminLogin()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md transition">Admin / Requests Portal</button>
     </div>
 
-    <!-- REGISTRATION VIEW -->
     <div id="registrationView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
       <h2 class="text-xl font-bold text-amber-700">Self Registration</h2>
       <div class="flex gap-2">
@@ -40,19 +38,27 @@
         <input type="text" id="r_secName" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Secretariat Name">
         <input type="text" id="r_phone" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Phone No">
         
-        <input type="email" id="r_email" placeholder="Your Active Email ID (Required for Password Resets)" class="w-full p-2 border border-blue-400 rounded-lg mt-2 focus:ring-2 focus:ring-blue-500">
-        <input type="password" id="r_password" placeholder="Create your custom Login Password" class="w-full p-2 border border-amber-400 rounded-lg focus:ring-2 focus:ring-amber-500">
+        <div class="mt-4 p-3 border-2 border-blue-200 bg-blue-50 rounded-lg space-y-3">
+          <h3 class="font-bold text-blue-900 text-xs">Security Setup (Required)</h3>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Active Email ID (For Password Resets)</label>
+            <input type="email" id="r_email" placeholder="e.g., employee@ap.gov.in" class="w-full p-2 border border-blue-400 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Create Custom Login Password</label>
+            <input type="password" id="r_password" placeholder="Min 4 characters" class="w-full p-2 border border-blue-400 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
         
-        <div class="relative w-full aspect-square bg-black rounded-xl overflow-hidden mt-2 flex items-center justify-center">
+        <div class="relative w-full aspect-square bg-black rounded-xl overflow-hidden mt-4 flex items-center justify-center">
           <video id="regWebcam" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
           <div id="regPrompt" class="absolute bottom-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-semibold text-center">Align face for Registration</div>
         </div>
-        <button onclick="registerWithFace(event)" class="w-full py-3 bg-amber-600 text-white font-bold rounded-xl mt-2 shadow transition">Capture Face & Register</button>
+        <button onclick="registerWithFace(event)" class="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl mt-2 shadow transition">Capture Face & Register</button>
       </div>
       <button onclick="showHome()" class="w-full text-slate-500 text-sm font-medium mt-2">Cancel & Back</button>
     </div>
 
-    <!-- ADMIN LOGIN VIEW -->
     <div id="adminLoginView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
       <h2 class="text-xl font-bold text-indigo-900">Admin Authentication</h2>
       <input type="text" id="adminUser" placeholder="Username (Default: RMC_Main)" class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-400">
@@ -62,7 +68,6 @@
       <button onclick="showHome()" class="w-full text-slate-500 text-sm font-medium">Back</button>
     </div>
 
-    <!-- ADMIN DASHBOARD (TABS) -->
     <div id="adminDashboardView" class="hidden space-y-4 mt-4">
       <div class="flex flex-wrap gap-2 text-xs">
         <button onclick="switchTab('tabSettings')" class="bg-indigo-600 text-white px-3 py-2 rounded shadow">Control</button>
@@ -71,7 +76,6 @@
         <button id="btnSubAdminTab" onclick="switchTab('tabSubAdmin')" class="bg-slate-200 px-3 py-2 rounded shadow hidden">Sub-Admins</button>
       </div>
 
-      <!-- Tab: Settings -->
       <div id="tabSettings" class="glass p-5 rounded-2xl shadow space-y-3">
         <h3 class="font-bold text-indigo-900 border-b pb-2">Attendance Time Control</h3>
         <label class="flex items-center gap-2 font-semibold text-sm">
@@ -86,7 +90,6 @@
         <button onclick="saveAdminSettings()" class="w-full py-2 bg-indigo-600 text-white font-semibold rounded-lg mt-2">Save Rules</button>
       </div>
 
-      <!-- Tab: Manual Punch -->
       <div id="tabPunch" class="glass p-5 rounded-2xl shadow space-y-3 hidden">
         <h3 class="font-bold text-indigo-900 border-b pb-2">Direct Manual Punch</h3>
         <input type="text" id="manCfms" placeholder="Employee CFMS ID" class="w-full p-2 border rounded">
@@ -98,14 +101,12 @@
         </div>
       </div>
 
-      <!-- Tab: Requests & Edits -->
       <div id="tabRequests" class="glass p-5 rounded-2xl shadow space-y-3 hidden">
         <h3 class="font-bold text-indigo-900 border-b pb-2">Employee DB Edits</h3>
         <button onclick="loadRequests()" class="w-full py-1 bg-slate-200 text-xs rounded mb-2">Refresh</button>
         <div id="requestsContainer" class="space-y-3 max-h-64 overflow-y-auto text-sm"></div>
       </div>
 
-      <!-- Tab: Sub-Admins -->
       <div id="tabSubAdmin" class="glass p-5 rounded-2xl shadow space-y-3 hidden">
         <h3 class="font-bold text-indigo-900 border-b pb-2">Create Sub-Admin</h3>
         <input type="text" id="subUser" placeholder="Username" class="w-full p-2 border rounded">
@@ -115,7 +116,6 @@
       </div>
     </div>
 
-    <!-- EMPLOYEE ATTENDANCE VIEW -->
     <div id="empLoginView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
       <h2 class="text-xl font-bold text-emerald-900">Employee Portal</h2>
       <input type="text" id="empCfms" placeholder="CFMS ID" class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-emerald-400">
@@ -239,7 +239,7 @@
         const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
         if (detections.length === 0) throw new Error("❌ Human face not detected! Look directly at camera.");
         if (detections.length > 1) throw new Error("❌ Multiple faces detected! Only 1 person allowed.");
-        if (detections[0].detection.score < 0.90) throw new Error("❌ Face obscured. Remove masks, heavy glasses, or caps."); 
+        if (detections[0].detection.score < 0.90) throw new Error("❌ Face obscured. Remove masks, heavy glasses, or caps."); // Strict Score
         
         const payload = { action: "self_register", secName: document.getElementById('r_secName').value, candidateName: document.getElementById('r_candName').value, cfmsId: document.getElementById('regCfmsId').value.trim(), phone: document.getElementById('r_phone').value, email: email, password: pass, faceDescriptor: Array.from(detections[0].descriptor) };
         const res = await apiCall(payload);
