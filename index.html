@@ -27,7 +27,7 @@
       <button onclick="showAdminLogin()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md transition">Admin / Requests Portal</button>
     </div>
 
-    <!-- ENHANCED REGISTRATION VIEW -->
+    <!-- REGISTRATION VIEW -->
     <div id="registrationView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
       <h2 class="text-xl font-bold text-amber-700">Self Registration</h2>
       <div class="flex gap-2">
@@ -38,7 +38,7 @@
 
       <div id="regDetails" class="hidden space-y-2 text-sm mt-2 border-t pt-4">
         
-        <!-- Fetched Database Details (Read Only) -->
+        <!-- Fetched Database Details -->
         <div class="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm">
           <h3 class="font-bold text-slate-800 text-xs uppercase border-b pb-1">Fetched Database Details</h3>
           
@@ -84,7 +84,7 @@
         <!-- Camera UI -->
         <div id="camTroubleshoot" class="hidden bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg mt-2 text-xs space-y-2">
           <p class="font-bold text-red-900">⚠️ Camera Hardware Blocked</p>
-          <p>Your operating system is denying camera access. Web browsers cannot force other apps to close. To fix this:</p>
+          <p>Your OS is denying camera access. To fix this:</p>
           <ul class="list-disc pl-4 space-y-1">
             <li>Close <b>Zoom, MS Teams, Skype</b>, or Webex.</li>
             <li>Close any other browser tabs using the camera.</li>
@@ -213,7 +213,6 @@
         const text = await response.text();
         return JSON.parse(text);
       } catch (err) {
-        console.error("API Error:", err);
         throw new Error("Network connection failed. Please try again.");
       }
     }
@@ -335,17 +334,6 @@
       } catch (e) { alert(e.message); document.getElementById('regPrompt').innerText = "Align face for AI Scan"; } finally { btn.innerText = originalText; btn.disabled = false; }
     }
 
-    // --- PASSWORD RESET ---
-    async function resetPassword(type) {
-      const identifier = prompt(`Enter your ${type === 'ADMIN' ? 'Username' : 'CFMS ID'} to receive a new password via email:`);
-      if (!identifier) return;
-      alert("Requesting reset... please wait.");
-      try {
-        const res = await apiCall({ action: "reset_password", type: type, identifier: identifier });
-        alert(res.message);
-      } catch(e) { alert("Reset Error."); }
-    }
-
     // --- ADMIN LOGIC ---
     function switchTab(tabId) {
       ['tabSettings','tabPunch','tabRequests','tabSubAdmin'].forEach(id => document.getElementById(id).classList.add('hidden'));
@@ -385,36 +373,6 @@
       try { const res = await apiCall(payload); alert(res.message); } catch (e) {}
     }
 
-    async function createSubAdmin() {
-      const payload = { action: "create_subadmin", newUsername: document.getElementById('subUser').value, newPassword: document.getElementById('subPass').value, newEmail: document.getElementById('subEmail').value };
-      try { const res = await apiCall(payload); alert(res.message); } catch (e) {}
-    }
-
-    async function loadRequests() {
-      const container = document.getElementById('requestsContainer');
-      try {
-        const res = await apiCall({ action: "get_requests" });
-        if (res.success && res.requests.length > 0) {
-          container.innerHTML = res.requests.map(r => `
-            <div class="p-3 bg-white border rounded-lg shadow-sm">
-              <b class="text-indigo-900">${r.name} (${r.cfmsId})</b>
-              <p class="mt-1 text-xs mb-2"><b>Requested:</b> <i>${r.request}</i></p>
-              <div class="space-y-1">
-                <input type="text" id="editN_${r.rowIdx}" value="${r.name}" class="border p-1 w-full text-xs">
-                <input type="text" id="editE_${r.rowIdx}" placeholder="New Email" class="border p-1 w-full text-xs">
-                <input type="text" id="editP_${r.rowIdx}" placeholder="New Phone" class="border p-1 w-full text-xs">
-                <button onclick="saveEdit(${r.rowIdx}, '${r.cfmsId}')" class="bg-indigo-600 text-white px-2 py-1 rounded w-full mt-2">Update DB & Resolve</button>
-              </div>
-            </div>`).join('');
-        } else container.innerHTML = "<p class='text-slate-500'>No pending requests.</p>";
-      } catch (e) {}
-    }
-
-    async function saveEdit(idx, cfms) {
-      const payload = { action: "edit_employee", reqRowIdx: idx, cfmsId: cfms, newName: document.getElementById(`editN_${idx}`).value, newEmail: document.getElementById(`editE_${idx}`).value, newPhone: document.getElementById(`editP_${idx}`).value };
-      try { const res = await apiCall(payload); alert(res.message); loadRequests(); } catch (e) {}
-    }
-
     // --- EMPLOYEE ATTENDANCE LOGIC ---
     async function loginEmployee() {
       try {
@@ -422,7 +380,7 @@
         if (res.success) {
           currentUser = res.user; hideAll(); document.getElementById('empCaptureView').classList.remove('hidden'); document.getElementById('empWelcome').innerText = `${currentUser.name} (${currentUser.cfmsId})`;
           verifyLocationAndInitCamera();
-        } else alert(res.message);
+        } else alert(res.message || res.error || "Login Failed.");
       } catch (err) { alert("Login error."); }
     }
 
@@ -432,10 +390,22 @@
         currentCoords.lat = pos.coords.latitude; currentCoords.lng = pos.coords.longitude;
         try {
           const res = await apiCall({ action: "get_geofence", secretariat: currentUser.secretariat });
-          if (res.success) {
-            const R = 6371e3, φ1 = currentCoords.lat*Math.PI/180, φ2 = res.geofence.lat*Math.PI/180;
-            const dist = R * 2 * Math.atan2(Math.sqrt(Math.sin((res.geofence.lat-currentCoords.lat)*Math.PI/180/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin((res.geofence.lng-currentCoords.lng)*Math.PI/180/2)**2), Math.sqrt(1-(Math.sin((res.geofence.lat-currentCoords.lat)*Math.PI/180/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin((res.geofence.lng-currentCoords.lng)*Math.PI/180/2)**2)));
-            if (dist <= res.geofence.radius) {
+          if (res.success && res.geofence) {
+            
+            // Explicitly map geofence text to numbers to prevent mathematical exceptions
+            const lat2 = parseFloat(res.geofence.lat);
+            const lng2 = parseFloat(res.geofence.lng);
+            const radius = parseFloat(res.geofence.radius);
+            
+            const R = 6371e3, φ1 = currentCoords.lat*Math.PI/180, φ2 = lat2*Math.PI/180;
+            const dLat = (lat2-currentCoords.lat)*Math.PI/180;
+            const dLng = (lng2-currentCoords.lng)*Math.PI/180;
+            
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const dist = R * c;
+
+            if (dist <= radius) {
               isGeofenceValid = true; geoStatus.innerText = `Verified: Inside ${currentUser.secretariat}`; geoStatus.className = "text-xs font-semibold text-emerald-600"; startAI();
             } else {
               isGeofenceValid = false; geoStatus.innerText = `Outside Geofence: ${Math.round(dist)}m away`; geoStatus.className = "text-xs font-semibold text-red-600"; alert("Outside designated geofence!");
@@ -443,7 +413,10 @@
           } else {
             isGeofenceValid = true; geoStatus.innerText = "No Geofence Set. Starting AI..."; startAI();
           }
-        } catch (e) { geoStatus.innerText = "Geofence verify error."; }
+        } catch (e) { 
+          geoStatus.innerText = "Geofence Error: " + e.message; 
+          geoStatus.className = "text-xs font-semibold text-red-600";
+        }
       }, err => { geoStatus.innerText = "Error reading GPS: " + err.message; }, { enableHighAccuracy: true });
     }
 
