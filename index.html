@@ -195,7 +195,7 @@
 
   <script>
     // ⚠️ UPDATE THIS LINK ⚠️
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyQlzUKPlRoeq30oDoBjYZW_8d_y6oDM_6bNTFNrYhoIfVg-mUVO0duAACy_K9Cfruv/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyQlzUKPlRoeq30oDoBjYZW_8d_y6oDM_6bNTFNrYhoIfVg-mUVO0duAACy_K9Cfruv/ex";
 
     let currentUser = null, cameraInstance = null, modelsLoaded = false, livenessVerified = false, capturedPhotoBase64 = null;
     let currentCoords = { lat: 0, lng: 0 }, isGeofenceValid = false;
@@ -274,6 +274,7 @@
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         document.getElementById('regWebcam').srcObject = stream;
+        document.getElementById('regPrompt').innerText = "Align face for AI Scan";
         document.getElementById('camTroubleshoot').classList.add('hidden');
       } catch (camError) { btn.innerText = "Camera Still Locked. Retry Again."; btn.disabled = false; }
     }
