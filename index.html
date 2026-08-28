@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>RMC HR Management</title>
+  <title>AI Face Attendance System</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
@@ -13,7 +13,7 @@
 <body class="bg-slate-900 text-slate-800 min-h-screen flex flex-col justify-between">
 
   <header class="bg-indigo-700 text-white p-4 shadow-md text-center font-bold text-lg flex justify-between items-center">
-    <span>RMC HR Management System</span>
+    <span>AI Attendance Hub</span>
     <button id="logoutBtn" onclick="logout()" class="hidden text-xs bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg shadow transition">Logout</button>
   </header>
 
@@ -30,13 +30,21 @@
       <h2 class="text-xl font-bold text-amber-700">Self Registration</h2>
       <div class="flex gap-2">
         <input type="text" id="regCfmsId" placeholder="Enter CFMS ID" class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-amber-400">
-        <button id="btnFindCfms" onclick="fetchEmpData(event)" class="bg-amber-500 text-white px-4 rounded-lg font-bold">Fetch</button>
+        <button id="btnFindCfms" onclick="fetchEmpData(event)" class="bg-amber-500 hover:bg-amber-600 text-white px-4 rounded-lg font-bold">Fetch</button>
       </div>
+      <p id="lockHint" class="hidden text-xs text-slate-500 text-center mt-1">CFMS ID Locked. Refresh page to change.</p>
 
       <div id="regDetails" class="hidden space-y-2 text-sm mt-2 border-t pt-4">
-        <input type="text" id="r_candName" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Candidate Name">
-        <input type="text" id="r_secName" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Secretariat Name">
-        <input type="text" id="r_phone" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Phone No">
+        
+        <div class="grid grid-cols-2 gap-2 mb-2">
+          <input type="text" id="r_candName" readonly class="col-span-2 w-full p-2 bg-slate-100 rounded border font-semibold text-slate-700" placeholder="Candidate Name">
+          <input type="text" id="r_dept" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Dept / Ward No">
+          <input type="text" id="r_secNo" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Sec No">
+          <input type="text" id="r_secName" readonly class="col-span-2 w-full p-2 bg-slate-100 rounded border" placeholder="Secretariat Name">
+          <input type="text" id="r_postName" readonly class="col-span-2 w-full p-2 bg-slate-100 rounded border" placeholder="Post Name">
+          <input type="text" id="r_phone" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Phone No">
+          <input type="text" id="r_remarks" readonly class="w-full p-2 bg-slate-100 rounded border" placeholder="Remarks">
+        </div>
         
         <div class="mt-4 p-3 border-2 border-blue-200 bg-blue-50 rounded-lg space-y-3">
           <h3 class="font-bold text-blue-900 text-xs">Security Setup (Required)</h3>
@@ -48,15 +56,29 @@
             <label class="block text-xs font-bold text-slate-700 mb-1">Create Custom Login Password</label>
             <input type="password" id="r_password" placeholder="Min 4 characters" class="w-full p-2 border border-blue-400 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
           </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Employee Data Edits (Optional)</label>
+            <textarea id="r_request" placeholder="Describe any corrections needed for your fetched data..." class="w-full p-2 border border-blue-400 rounded-lg h-12 outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+          </div>
         </div>
         
+        <div id="camTroubleshoot" class="hidden bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg mt-2 text-xs space-y-2">
+          <p class="font-bold text-red-900">⚠️ Camera Hardware Blocked</p>
+          <p>Your operating system is denying camera access. Web browsers cannot force other apps to close. To fix this:</p>
+          <ul class="list-disc pl-4 space-y-1">
+            <li>Close <b>Zoom, MS Teams, Skype</b>, or Webex.</li>
+            <li>Close any other browser tabs using the camera.</li>
+          </ul>
+          <button onclick="retryCamera()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded shadow mt-2">I have closed them. Retry Camera.</button>
+        </div>
+
         <div class="relative w-full aspect-square bg-black rounded-xl overflow-hidden mt-4 flex items-center justify-center">
           <video id="regWebcam" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
           <div id="regPrompt" class="absolute bottom-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-semibold text-center">Align face for Registration</div>
         </div>
         <button onclick="registerWithFace(event)" class="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl mt-2 shadow transition">Capture Face & Register</button>
       </div>
-      <button onclick="showHome()" class="w-full text-slate-500 text-sm font-medium mt-2">Cancel & Back</button>
+      <button onclick="showHome()" class="w-full text-slate-500 hover:text-slate-700 text-sm font-medium mt-2 transition">Cancel & Back</button>
     </div>
 
     <div id="adminLoginView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
@@ -128,6 +150,7 @@
     <div id="empCaptureView" class="hidden space-y-4">
       <div class="glass p-4 rounded-2xl shadow text-center space-y-2">
         <h3 id="empWelcome" class="font-bold text-lg text-emerald-900"></h3>
+        <p id="geoStatus" class="text-xs font-semibold text-slate-600">Verifying GPS Location...</p>
       </div>
       <div class="relative w-full aspect-square bg-black rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center">
         <video id="webcam" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
@@ -141,13 +164,18 @@
 
   </main>
 
+  <footer class="text-center p-4 text-xs text-slate-500 font-medium">
+    AI Real-Time Eye Blink Liveness & Geofencing Protected
+  </footer>
+
   <script>
     // ⚠️ UPDATE THIS LINK ⚠️
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyQlzUKPlRoeq30oDoBjYZW_8d_y6oDM_6bNTFNrYhoIfVg-mUVO0duAACy_K9Cfruv/exec";
 
     let currentUser = null, cameraInstance = null, modelsLoaded = false, livenessVerified = false, capturedPhotoBase64 = null;
+    let currentCoords = { lat: 0, lng: 0 }, isGeofenceValid = false;
 
-    // --- CENTRAL API CALLER (FIXES CORS/LOGIN ERRORS) ---
+    // --- CENTRAL API CALLER ---
     async function apiCall(payload) {
       try {
         const response = await fetch(SCRIPT_URL, {
@@ -213,9 +241,16 @@
         if (res.success) {
           cfmsInput.disabled = true; btn.innerText = "Locked";
           document.getElementById('regDetails').classList.remove('hidden');
+          
+          // Map response data to UI elements
           document.getElementById('r_candName').value = res.data.candidateName;
+          document.getElementById('r_dept').value = res.data.department;
+          document.getElementById('r_secNo').value = res.data.secNo;
           document.getElementById('r_secName').value = res.data.secName;
+          document.getElementById('r_postName').value = res.data.postName;
           document.getElementById('r_phone').value = res.data.phone;
+          document.getElementById('r_remarks').value = res.data.remarks;
+          
           if (stream) document.getElementById('regWebcam').srcObject = stream;
         } else {
           if (stream) stopCameras(); btn.innerText = txt; btn.disabled = false; alert(res.message);
@@ -239,9 +274,9 @@
         const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
         if (detections.length === 0) throw new Error("❌ Human face not detected! Look directly at camera.");
         if (detections.length > 1) throw new Error("❌ Multiple faces detected! Only 1 person allowed.");
-        if (detections[0].detection.score < 0.90) throw new Error("❌ Face obscured. Remove masks, heavy glasses, or caps."); // Strict Score
+        if (detections[0].detection.score < 0.90) throw new Error("❌ Face obscured. Remove masks, heavy glasses, or caps."); 
         
-        const payload = { action: "self_register", secName: document.getElementById('r_secName').value, candidateName: document.getElementById('r_candName').value, cfmsId: document.getElementById('regCfmsId').value.trim(), phone: document.getElementById('r_phone').value, email: email, password: pass, faceDescriptor: Array.from(detections[0].descriptor) };
+        const payload = { action: "self_register", secName: document.getElementById('r_secName').value, candidateName: document.getElementById('r_candName').value, cfmsId: document.getElementById('regCfmsId').value.trim(), phone: document.getElementById('r_phone').value, email: email, password: pass, empRequest: document.getElementById('r_request').value, faceDescriptor: Array.from(detections[0].descriptor) };
         const res = await apiCall(payload);
         if (res.success) { alert(`🎉 Registration Successful!\nRedirecting to Home.`); showHome(); } else alert(res.message);
       } catch (e) { alert(e.message); } finally { btn.innerText = originalText; btn.disabled = false; }
@@ -333,15 +368,42 @@
         const res = await apiCall({ action: "emp_login", cfmsId: document.getElementById('empCfms').value, password: document.getElementById('empPass').value });
         if (res.success) {
           currentUser = res.user; hideAll(); document.getElementById('empCaptureView').classList.remove('hidden'); document.getElementById('logoutBtn').classList.remove('hidden'); document.getElementById('empWelcome').innerText = `${currentUser.name} (${currentUser.cfmsId})`;
-          
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-          document.getElementById('webcam').srcObject = stream; startAI();
+          verifyLocationAndInitCamera();
         } else alert(res.message);
       } catch (err) { alert("Login error."); }
     }
 
-    function startAI() {
+    function verifyLocationAndInitCamera() {
+      const geoStatus = document.getElementById('geoStatus'); geoStatus.innerText = "Checking GPS Location...";
+      navigator.geolocation.getCurrentPosition(async pos => {
+        currentCoords.lat = pos.coords.latitude; currentCoords.lng = pos.coords.longitude;
+        try {
+          const res = await apiCall({ action: "get_geofence", secretariat: currentUser.secretariat });
+          if (res.success) {
+            const R = 6371e3, φ1 = currentCoords.lat*Math.PI/180, φ2 = res.geofence.lat*Math.PI/180;
+            const dist = R * 2 * Math.atan2(Math.sqrt(Math.sin((res.geofence.lat-currentCoords.lat)*Math.PI/180/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin((res.geofence.lng-currentCoords.lng)*Math.PI/180/2)**2), Math.sqrt(1-(Math.sin((res.geofence.lat-currentCoords.lat)*Math.PI/180/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin((res.geofence.lng-currentCoords.lng)*Math.PI/180/2)**2)));
+            if (dist <= res.geofence.radius) {
+              isGeofenceValid = true; geoStatus.innerText = `Verified: Inside ${currentUser.secretariat}`; geoStatus.className = "text-xs font-semibold text-emerald-600"; startAI();
+            } else {
+              isGeofenceValid = false; geoStatus.innerText = `Outside Geofence: ${Math.round(dist)}m away`; geoStatus.className = "text-xs font-semibold text-red-600"; alert("Outside designated geofence!");
+            }
+          } else {
+            isGeofenceValid = true; geoStatus.innerText = "No Geofence Set. Starting AI..."; startAI();
+          }
+        } catch (e) { geoStatus.innerText = "Geofence verify error."; }
+      }, err => { geoStatus.innerText = "Error reading GPS: " + err.message; }, { enableHighAccuracy: true });
+    }
+
+    async function startAI() {
       const videoElement = document.getElementById('webcam'), prompt = document.getElementById('aiPrompt');
+      stopCameras(); 
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        videoElement.srcObject = stream;
+      } catch (e) {
+        return prompt.innerText = "Camera Access Blocked";
+      }
+
       const faceMesh = new FaceMesh({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
       faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
       let eyeClosed = false; livenessVerified = false;
@@ -360,7 +422,7 @@
              prompt.innerText = "✅ Identity Verified! Select IN/OUT"; prompt.className = "absolute bottom-3 bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-full";
              const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 480; const ctx = canvas.getContext('2d'); ctx.translate(480, 0); ctx.scale(-1, 1); ctx.drawImage(videoElement, 0, 0, 480, 480);
              capturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
-             document.getElementById('btnIn').disabled = false; document.getElementById('btnOut').disabled = false;
+             if (isGeofenceValid) { document.getElementById('btnIn').disabled = false; document.getElementById('btnOut').disabled = false; }
           } else { 
              prompt.innerText = "❌ Face Mismatch or Mask Detected!"; prompt.className = "absolute bottom-3 bg-red-600 text-white text-xs px-3 py-1.5 rounded-full"; 
              livenessVerified = false; eyeClosed = false; 
@@ -372,11 +434,11 @@
     }
 
     async function punchAttendance(type) {
-      if (!livenessVerified || !capturedPhotoBase64) return;
+      if (!livenessVerified || !capturedPhotoBase64 || !isGeofenceValid) return;
       const btn = type === 'IN' ? document.getElementById('btnIn') : document.getElementById('btnOut');
       const txt = btn.innerText; btn.innerText = "Submitting..."; btn.disabled = true;
       try {
-        const payload = { action: "mark_attendance", type: type, cfmsId: currentUser.cfmsId, name: currentUser.name, secretariat: currentUser.secretariat, photoBase64: capturedPhotoBase64 };
+        const payload = { action: "mark_attendance", type: type, cfmsId: currentUser.cfmsId, name: currentUser.name, secretariat: currentUser.secretariat, photoBase64: capturedPhotoBase64, lat: currentCoords.lat, lng: currentCoords.lng };
         const res = await apiCall(payload);
         if (res.success) { alert(res.message); logout(); } else { alert(res.message); btn.innerText = txt; btn.disabled = false; }
       } catch (err) { alert("Network error."); btn.innerText = txt; btn.disabled = false;}
