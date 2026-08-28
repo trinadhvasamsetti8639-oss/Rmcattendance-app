@@ -27,18 +27,18 @@
       <button onclick="showAdminLogin()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md transition">Admin / Requests Portal</button>
     </div>
 
-    <!-- ENHANCED REGISTRATION VIEW -->
+    <!-- REGISTRATION VIEW -->
     <div id="registrationView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
       <h2 class="text-xl font-bold text-amber-700">Self Registration</h2>
       <div class="flex gap-2">
         <input type="text" id="regCfmsId" placeholder="Enter CFMS ID" class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-amber-400">
-        <button id="btnFindCfms" onclick="fetchEmpData(event)" class="bg-amber-500 text-white px-4 rounded-lg font-bold">Fetch</button>
+        <button id="btnFindCfms" onclick="fetchEmpData(event)" class="bg-amber-500 text-white px-4 rounded-lg font-bold">Fetch Data</button>
       </div>
       <p id="lockHint" class="hidden text-xs text-slate-500 text-center mt-1">CFMS ID Locked. Refresh page to change.</p>
 
-      <div id="regDetails" class="hidden space-y-4 mt-2 border-t pt-4">
+      <div id="regDetails" class="hidden space-y-2 text-sm mt-2 border-t pt-4">
         
-        <!-- Fetched Database Details (Stacked & Explicit) -->
+        <!-- Fetched Database Details (Read Only) -->
         <div class="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm">
           <h3 class="font-bold text-slate-800 text-xs uppercase border-b pb-1">Fetched Database Details</h3>
           
@@ -65,22 +65,19 @@
         </div>
         
         <!-- User Input Requirements -->
-        <div class="p-3 border-2 border-blue-200 bg-blue-50 rounded-lg space-y-3 shadow-sm">
-          <h3 class="font-bold text-blue-900 text-xs uppercase border-b border-blue-200 pb-1">Required Security Setup</h3>
-          
+        <div class="mt-4 p-3 border-2 border-blue-200 bg-blue-50 rounded-lg space-y-3">
+          <h3 class="font-bold text-blue-900 text-xs">Security Setup (Required)</h3>
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Enter Active Email ID</label>
-            <input type="email" id="r_email" placeholder="Required for Password Resets" class="w-full p-2 border border-blue-400 rounded outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Active Email ID (For Password Resets)</label>
+            <input type="email" id="r_email" placeholder="e.g., employee@ap.gov.in" class="w-full p-2 border border-blue-400 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
           </div>
-          
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Set Custom Password</label>
-            <input type="password" id="r_password" placeholder="Create login password" class="w-full p-2 border border-blue-400 rounded outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Create Custom Login Password</label>
+            <input type="password" id="r_password" placeholder="Min 4 characters" class="w-full p-2 border border-blue-400 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
           </div>
-
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Employee Data Edits (Optional)</label>
-            <textarea id="r_request" placeholder="Are corrections needed for the fetched data? Describe here..." class="w-full p-2 border border-blue-400 rounded h-16 outline-none focus:ring-2 focus:ring-blue-500 text-sm"></textarea>
+            <textarea id="r_request" placeholder="Are corrections needed for the fetched data above? Describe here..." class="w-full p-2 border border-blue-400 rounded-lg h-12 outline-none focus:ring-2 focus:ring-blue-500"></textarea>
           </div>
         </div>
         
@@ -330,7 +327,7 @@
         const payload = { action: "self_register", secName: document.getElementById('r_secName').value, candidateName: document.getElementById('r_candName').value, cfmsId: cfmsId, phone: document.getElementById('r_phone').value, email: email, password: pass, empRequest: document.getElementById('r_request').value, faceDescriptor: Array.from(detections[0].descriptor) };
         const res = await apiCall(payload);
         if (res.success) { 
-          alert(`🎉 Registered Successfully!\n\nUser CFMS ID: ${cfmsId}\nPassword: ${pass}\n\n⚠️ Please save these credentials before clicking OK to redirect to the Home page.`); 
+          alert(`🎉 Successfully Registered!\n\nYour Credentials:\nCFMS ID: ${cfmsId}\nPassword: ${pass}\n\n⚠️ PLEASE SAVE THESE CREDENTIALS NOW! ⚠️\nClick OK only after saving them.`); 
           showHome(); 
         } else {
           alert(`${res.message}`);
