@@ -492,6 +492,7 @@
       } catch (err) { alert("Login error."); }
     }
 
+    // Geofence check acts as absolute gatekeeper before AI starts
     function verifyLocationAndInitCamera() {
       const geoStatus = document.getElementById('geoStatus'); geoStatus.innerText = "Checking GPS Location...";
       navigator.geolocation.getCurrentPosition(async pos => {
@@ -566,7 +567,7 @@
         const res = await apiCall(payload);
         if (res.success) { 
           alert(`User With CFMSID ${currentUser.cfmsId} and Name ${currentUser.name} Successfully Marked ${type} time.`); 
-          logout(); 
+          logout(); // Entirely wipes session variables and goes to Home
         } else { alert(res.message); btn.innerText = txt; btn.disabled = false; }
       } catch (err) { alert("Network error."); btn.innerText = txt; btn.disabled = false;}
     }
