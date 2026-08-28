@@ -203,16 +203,11 @@
     let adminPunchTarget = null, adminCameraInstance = null, adminCapturedPhotoBase64 = null;
     let adminCurrentCoords = { lat: 0, lng: 0 }, isAdminGeofenceValid = false;
 
-    // --- CENTRAL API CALLER ---
     async function apiCall(payload) {
       try {
         const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload), redirect: "follow" });
         const text = await response.text();
-        try {
-          return JSON.parse(text);
-        } catch(e) {
-          throw new Error("Server returned non-JSON. Did you deploy as a New Version and give access to 'Anyone'?");
-        }
+        try { return JSON.parse(text); } catch(e) { throw new Error("Server returned non-JSON."); }
       } catch (err) { throw new Error(err.message || "Network connection failed."); }
     }
 
@@ -335,7 +330,7 @@
           if (res.role === "MAIN") document.getElementById('btnSubAdminTab').classList.remove('hidden');
           loadAdminSettings(); loadRequests();
         } else alert(res.message);
-      } catch (err) { alert("Admin Login Error: " + err.message); }
+      } catch (err) { alert("Login failed."); }
     }
 
     async function loadAdminSettings() {
@@ -421,7 +416,9 @@
            prompt.innerText = "✅ Face Matched! Ready to Punch"; prompt.className = "absolute bottom-2 bg-emerald-600 text-white text-xs px-2 py-1 rounded-full";
            const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 480; const ctx = canvas.getContext('2d'); ctx.translate(480, 0); ctx.scale(-1, 1); ctx.drawImage(videoElement, 0, 0, 480, 480);
            adminCapturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
-           if (isAdminGeofenceValid) { document.getElementById('btnAdminIn').disabled = false; document.getElementById('btnAdminOut').disabled = false; }
+           if (isAdminGeofenceValid) {
+             document.getElementById('btnAdminIn').disabled = false; document.getElementById('btnAdminOut').disabled = false;
+           }
         } else { 
            prompt.innerText = "❌ Face Mismatch or Mask Detected!"; prompt.className = "absolute bottom-2 bg-red-600 text-white text-xs px-2 py-1 rounded-full"; 
            document.getElementById('btnAdminIn').disabled = true; document.getElementById('btnAdminOut').disabled = true;
@@ -434,13 +431,13 @@
     async function submitAdminPunch(type) {
       if (!isAdminGeofenceValid || !adminCapturedPhotoBase64) return;
       const payload = { action: "admin_manual_punch", type: type, cfmsId: adminPunchTarget.cfmsId, name: adminPunchTarget.name, secretariat: adminPunchTarget.secretariat, photoBase64: adminCapturedPhotoBase64, lat: adminCurrentCoords.lat, lng: adminCurrentCoords.lng };
-      try {
-        const res = await apiCall(payload);
-        if (res.success) {
-          alert(`User With CFMSID ${adminPunchTarget.cfmsId} And Name ${adminPunchTarget.name} Marked ${type} Attendance Successfully`);
-          document.getElementById('adminManualDetails').classList.add('hidden'); document.getElementById('adminManCfms').value = ''; stopCameras();
-        } else alert(res.message);
-      } catch (err) { alert("Admin Punch Error: " + err.message); }
+      const res = await apiCall(payload);
+      if (res.success) {
+        alert(`User With CFMSID ${adminPunchTarget.cfmsId} And Name ${adminPunchTarget.name} Marked ${type} Attendance Successfully`);
+        document.getElementById('adminManualDetails').classList.add('hidden');
+        document.getElementById('adminManCfms').value = '';
+        stopCameras();
+      } else alert(res.message);
     }
 
     async function createSubAdmin() {
@@ -484,6 +481,7 @@
       } catch (err) { alert("Emp Login Error: " + err.message); }
     }
 
+    // Geofence check acts as absolute gatekeeper before AI starts
     function verifyLocationAndInitCamera() {
       const geoStatus = document.getElementById('geoStatus'); geoStatus.innerText = "Checking GPS Location...";
       navigator.geolocation.getCurrentPosition(async pos => {
@@ -500,8 +498,10 @@
             if (dist <= radius) {
               isGeofenceValid = true; geoStatus.innerText = `Verified: Inside ${currentUser.secretariat}`; geoStatus.className = "text-xs font-semibold text-emerald-600"; startAI();
             } else {
-              isGeofenceValid = false; geoStatus.innerText = `Outside Geofence: ${Math.round(dist)}m away`; geoStatus.className = "text-xs font-semibold text-red-600"; 
-              document.getElementById('aiPrompt').innerText = "❌ Geofence Failed. AI Locked."; alert("Outside designated geofence! Cannot mark attendance.");
+              isGeofenceValid = false; 
+              geoStatus.innerText = `Outside Geofence: ${Math.round(dist)}m away`; geoStatus.className = "text-xs font-semibold text-red-600"; 
+              document.getElementById('aiPrompt').innerText = "❌ Geofence Failed. AI Locked.";
+              alert("Outside designated geofence! Cannot mark attendance.");
             }
           } else {
             isGeofenceValid = true; geoStatus.innerText = "No Geofence Set. Starting AI..."; startAI();
