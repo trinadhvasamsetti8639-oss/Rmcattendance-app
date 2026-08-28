@@ -74,7 +74,7 @@
         <div id="camTroubleshoot" class="hidden bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg mt-2 text-xs space-y-2">
           <p class="font-bold text-red-900">⚠️ Camera Hardware Blocked</p>
           <ul class="list-disc pl-4 space-y-1"><li>Close Zoom, MS Teams, Skype, or Webex.</li><li>Close any other browser tabs using the camera.</li></ul>
-          <button onclick="retryCamera()" class="w-full py-2 bg-red-600 text-white font-bold rounded shadow mt-2">I have closed them. Retry Camera.</button>
+          <button onclick="retryCamera()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded shadow mt-2">I have closed them. Retry Camera.</button>
         </div>
 
         <div class="relative w-full aspect-square bg-black rounded-xl overflow-hidden mt-4 flex items-center justify-center border-4 border-slate-800 shadow-lg">
@@ -124,7 +124,7 @@
         <button onclick="saveAdminSettings()" class="w-full py-2 bg-indigo-600 text-white font-semibold rounded-lg mt-2 shadow">Apply Security Lock</button>
       </div>
 
-      <!-- NEW: AI ADMIN MANUAL PUNCH -->
+      <!-- AI ADMIN MANUAL PUNCH -->
       <div id="tabPunch" class="glass p-5 rounded-2xl shadow space-y-3 hidden">
         <h3 class="font-bold text-indigo-900 border-b pb-2">Admin Authorized Facial Punch</h3>
         <div class="flex gap-2">
@@ -132,8 +132,10 @@
           <button onclick="fetchAdminManualFace()" class="bg-amber-500 text-white px-3 text-sm font-bold rounded">Fetch</button>
         </div>
         
+        <p id="adminGeoStatus" class="hidden"></p>
+
         <div id="adminManualDetails" class="hidden space-y-2 mt-2 border-t pt-2">
-          <p id="adminManInfo" class="text-sm font-bold text-indigo-900 bg-indigo-50 p-2 rounded"></p>
+          <p id="adminManInfo" class="text-sm font-bold text-indigo-900 bg-indigo-50 p-2 rounded border"></p>
           
           <div class="relative w-full aspect-square bg-black rounded-xl overflow-hidden mt-2 flex items-center justify-center border-2 border-slate-800">
             <video id="adminWebcam" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
@@ -200,6 +202,7 @@
     
     // Admin specific vars
     let adminPunchTarget = null, adminCameraInstance = null, adminCapturedPhotoBase64 = null;
+    let adminCurrentCoords = { lat: 0, lng: 0 }, isAdminGeofenceValid = false;
 
     async function apiCall(payload) {
       try {
@@ -223,10 +226,9 @@
     function showEmpLogin() { hideAll(); document.getElementById('empLoginView').classList.remove('hidden'); initFaceAPI(); }
     function showRegistration() { hideAll(); document.getElementById('registrationView').classList.remove('hidden'); initFaceAPI(); }
     
-    // Wipes all Session variables & UI locks
     function logout() { 
       currentUser = null; isGeofenceValid = false; livenessVerified = false; capturedPhotoBase64 = null; currentCoords = { lat: 0, lng: 0 };
-      adminPunchTarget = null; adminCapturedPhotoBase64 = null;
+      adminPunchTarget = null; adminCapturedPhotoBase64 = null; adminCurrentCoords = { lat: 0, lng: 0 }; isAdminGeofenceValid = false;
       if(document.getElementById('btnIn')) { document.getElementById('btnIn').disabled = true; document.getElementById('btnIn').innerText = "Punch IN"; }
       if(document.getElementById('btnOut')) { document.getElementById('btnOut').disabled = true; document.getElementById('btnOut').innerText = "Punch OUT"; }
       if(document.getElementById('aiPrompt')) document.getElementById('aiPrompt').innerText = "Initializing AI...";
@@ -347,11 +349,17 @@
       try { const res = await apiCall(payload); alert(res.message); } catch (e) {}
     }
     
-    // Admin Artificial AI Punch
+    // --- ADMIN AI GEOFENCE PUNCH ---
     async function fetchAdminManualFace() {
       const cfmsId = document.getElementById('adminManCfms').value.trim();
       if (!cfmsId) return alert("Enter CFMS ID");
       stopCameras();
+      
+      const geoText = document.getElementById('adminGeoStatus');
+      geoText.classList.remove('hidden');
+      geoText.innerText = "Fetching Employee Data...";
+      geoText.className = "text-xs font-semibold text-slate-600 mt-1";
+
       try {
         const res = await apiCall({ action: "admin_fetch_face", cfmsId: cfmsId });
         if (res.success) {
@@ -359,15 +367,55 @@
           document.getElementById('adminManualDetails').classList.remove('hidden');
           document.getElementById('adminManInfo').innerText = `Target: ${res.data.name} (${res.data.cfmsId}) - ${res.data.secretariat}`;
           
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-          document.getElementById('adminWebcam').srcObject = stream;
-          startAdminAI();
-        } else alert(res.message);
+          verifyAdminLocationAndInitCamera(res.data.secretariat);
+        } else { alert(res.message); geoText.innerText = ""; }
       } catch (err) { alert("Failed to fetch target."); }
     }
 
-    function startAdminAI() {
+    function verifyAdminLocationAndInitCamera(secretariat) {
+      const geoStatus = document.getElementById('adminGeoStatus');
+      geoStatus.innerText = "Checking Admin GPS Location...";
+      navigator.geolocation.getCurrentPosition(async pos => {
+        adminCurrentCoords.lat = pos.coords.latitude; 
+        adminCurrentCoords.lng = pos.coords.longitude;
+        try {
+          const res = await apiCall({ action: "get_geofence", secretariat: secretariat });
+          if (res.success && res.geofence) {
+            const lat2 = parseFloat(res.geofence.lat), lng2 = parseFloat(res.geofence.lng), radius = parseFloat(res.geofence.radius);
+            const R = 6371e3, φ1 = adminCurrentCoords.lat*Math.PI/180, φ2 = lat2*Math.PI/180;
+            const dLat = (lat2-adminCurrentCoords.lat)*Math.PI/180, dLng = (lng2-adminCurrentCoords.lng)*Math.PI/180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(dLng/2) * Math.sin(dLng/2);
+            const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            if (dist <= radius) {
+              isAdminGeofenceValid = true; 
+              geoStatus.innerText = `Verified: Admin Inside ${secretariat}`; 
+              geoStatus.className = "text-xs font-semibold text-emerald-600 mt-1"; 
+              startAdminAI();
+            } else {
+              isAdminGeofenceValid = false; 
+              geoStatus.innerText = `Admin Outside Geofence: ${Math.round(dist)}m away`; 
+              geoStatus.className = "text-xs font-semibold text-red-600 mt-1"; 
+              document.getElementById('adminAiPrompt').innerText = "❌ Geofence Failed. AI Locked.";
+              alert("Admin is outside the designated geofence for this employee! Cannot mark attendance.");
+            }
+          } else {
+            isAdminGeofenceValid = true; 
+            geoStatus.innerText = "No Geofence Set for this secretariat. Starting AI..."; 
+            geoStatus.className = "text-xs font-semibold text-amber-600 mt-1";
+            startAdminAI();
+          }
+        } catch (e) { geoStatus.innerText = "Geofence verify error."; geoStatus.className = "text-xs font-semibold text-red-600 mt-1"; }
+      }, err => { geoStatus.innerText = "Error reading GPS: " + err.message; }, { enableHighAccuracy: true });
+    }
+
+    async function startAdminAI() {
       const videoElement = document.getElementById('adminWebcam'), prompt = document.getElementById('adminAiPrompt');
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        videoElement.srcObject = stream;
+      } catch(e) { return prompt.innerText = "Camera Blocked"; }
+      
       const faceMesh = new FaceMesh({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
       faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
       
@@ -379,7 +427,9 @@
            prompt.innerText = "✅ Face Matched! Ready to Punch"; prompt.className = "absolute bottom-2 bg-emerald-600 text-white text-xs px-2 py-1 rounded-full";
            const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 480; const ctx = canvas.getContext('2d'); ctx.translate(480, 0); ctx.scale(-1, 1); ctx.drawImage(videoElement, 0, 0, 480, 480);
            adminCapturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
-           document.getElementById('btnAdminIn').disabled = false; document.getElementById('btnAdminOut').disabled = false;
+           if (isAdminGeofenceValid) {
+             document.getElementById('btnAdminIn').disabled = false; document.getElementById('btnAdminOut').disabled = false;
+           }
         } else { 
            prompt.innerText = "❌ Face Mismatch or Mask Detected!"; prompt.className = "absolute bottom-2 bg-red-600 text-white text-xs px-2 py-1 rounded-full"; 
            document.getElementById('btnAdminIn').disabled = true; document.getElementById('btnAdminOut').disabled = true;
@@ -390,10 +440,11 @@
     }
 
     async function submitAdminPunch(type) {
-      const payload = { action: "admin_manual_punch", type: type, cfmsId: adminPunchTarget.cfmsId, name: adminPunchTarget.name, secretariat: adminPunchTarget.secretariat, photoBase64: adminCapturedPhotoBase64 };
+      if (!isAdminGeofenceValid || !adminCapturedPhotoBase64) return;
+      const payload = { action: "admin_manual_punch", type: type, cfmsId: adminPunchTarget.cfmsId, name: adminPunchTarget.name, secretariat: adminPunchTarget.secretariat, photoBase64: adminCapturedPhotoBase64, lat: adminCurrentCoords.lat, lng: adminCurrentCoords.lng };
       const res = await apiCall(payload);
       if (res.success) {
-        alert(`CFMSID ${adminPunchTarget.cfmsId} And Name ${adminPunchTarget.name} Marked Attendance Successfully`);
+        alert(`User With CFMSID ${adminPunchTarget.cfmsId} And Name ${adminPunchTarget.name} Marked ${type} Attendance Successfully`);
         document.getElementById('adminManualDetails').classList.add('hidden');
         document.getElementById('adminManCfms').value = '';
         stopCameras();
@@ -441,7 +492,6 @@
       } catch (err) { alert("Login error."); }
     }
 
-    // Geofence check acts as absolute gatekeeper before AI starts
     function verifyLocationAndInitCamera() {
       const geoStatus = document.getElementById('geoStatus'); geoStatus.innerText = "Checking GPS Location...";
       navigator.geolocation.getCurrentPosition(async pos => {
@@ -516,7 +566,7 @@
         const res = await apiCall(payload);
         if (res.success) { 
           alert(`User With CFMSID ${currentUser.cfmsId} and Name ${currentUser.name} Successfully Marked ${type} time.`); 
-          logout(); // Entirely wipes session variables and goes to Home
+          logout(); 
         } else { alert(res.message); btn.innerText = txt; btn.disabled = false; }
       } catch (err) { alert("Network error."); btn.innerText = txt; btn.disabled = false;}
     }
