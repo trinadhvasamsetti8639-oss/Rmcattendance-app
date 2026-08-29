@@ -101,11 +101,14 @@
     <div id="adminDashboardView" class="hidden space-y-4 mt-4">
       <div class="flex flex-wrap gap-2 text-xs">
         <button onclick="switchTab('tabSettings')" class="bg-indigo-600 text-white px-3 py-2 rounded shadow">Control</button>
+        <!-- NEW Geofence Tab Button -->
+        <button onclick="switchTab('tabGeofence')" class="bg-slate-200 px-3 py-2 rounded shadow">Geofence</button>
         <button onclick="switchTab('tabPunch')" class="bg-slate-200 px-3 py-2 rounded shadow">AI Admin Punch</button>
         <button onclick="switchTab('tabRequests')" class="bg-slate-200 px-3 py-2 rounded shadow">Requests</button>
         <button id="btnSubAdminTab" onclick="switchTab('tabSubAdmin')" class="bg-slate-200 px-3 py-2 rounded shadow hidden">Sub-Admins</button>
       </div>
 
+      <!-- Time Settings -->
       <div id="tabSettings" class="glass p-5 rounded-2xl shadow space-y-3">
         <h3 class="font-bold text-indigo-900 border-b pb-2">Attendance Target Control</h3>
         <label class="flex items-center gap-2 font-semibold text-sm">
@@ -122,6 +125,26 @@
           <div><label class="text-xs font-bold text-slate-700">OUT End</label><input type="time" id="set_out_end" class="w-full p-2 border rounded"></div>
         </div>
         <button onclick="saveAdminSettings()" class="w-full py-2 bg-indigo-600 text-white font-semibold rounded-lg mt-2 shadow">Apply Security Lock</button>
+      </div>
+
+      <!-- NEW: ADMIN GEOFENCE CONFIGURATION -->
+      <div id="tabGeofence" class="glass p-5 rounded-2xl shadow space-y-3 hidden">
+        <h3 class="font-bold text-indigo-900 border-b pb-2">Geofence Configuration</h3>
+        <p class="text-xs text-slate-500 mb-2">Bind a Secretariat to a strict physical GPS boundary.</p>
+        
+        <input type="text" id="geoSecName" placeholder="Secretariat Name (Exact Match)" class="w-full p-2 border rounded text-sm font-semibold">
+        
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="text-xs font-bold text-slate-700">Latitude</label><input type="number" step="any" id="geoLat" placeholder="17.0005" class="w-full p-2 border rounded text-sm"></div>
+          <div><label class="text-xs font-bold text-slate-700">Longitude</label><input type="number" step="any" id="geoLng" placeholder="81.8040" class="w-full p-2 border rounded text-sm"></div>
+        </div>
+        
+        <div><label class="text-xs font-bold text-slate-700">Radius Boundary (Meters)</label><input type="number" id="geoRadius" value="50" class="w-full p-2 border rounded text-sm font-bold text-indigo-900"></div>
+        
+        <div class="flex flex-col gap-2 mt-2">
+          <button onclick="getAdminLocationForGeofence(event)" class="w-full py-2 bg-slate-600 text-white font-semibold rounded transition text-xs shadow">Auto-Fill My Current Location</button>
+          <button onclick="saveAdminGeofence()" class="w-full py-2 bg-indigo-600 text-white font-bold rounded transition text-sm shadow">Save Geofence Rules</button>
+        </div>
       </div>
 
       <!-- AI ADMIN MANUAL PUNCH -->
@@ -315,8 +338,9 @@
     }
 
     // --- ADMIN LOGIC ---
+    // Added Geofence tab logic
     function switchTab(tabId) {
-      ['tabSettings','tabPunch','tabRequests','tabSubAdmin'].forEach(id => document.getElementById(id).classList.add('hidden'));
+      ['tabSettings','tabPunch','tabRequests','tabSubAdmin', 'tabGeofence'].forEach(id => document.getElementById(id).classList.add('hidden'));
       document.getElementById(tabId).classList.remove('hidden');
       stopCameras(); 
     }
@@ -348,6 +372,41 @@
     async function saveAdminSettings() {
       const payload = { action: "update_admin_settings", active: document.getElementById('set_active').checked ? "TRUE" : "FALSE", attDate: document.getElementById('set_att_date').value, inStart: document.getElementById('set_in_start').value, inEnd: document.getElementById('set_in_end').value, outStart: document.getElementById('set_out_start').value, outEnd: document.getElementById('set_out_end').value };
       try { const res = await apiCall(payload); alert(res.message); } catch (e) {}
+    }
+    
+    // --- ADMIN GEOFENCE CREATION ---
+    function getAdminLocationForGeofence(event) {
+      const btn = event.target;
+      const originalText = btn.innerText;
+      btn.innerText = "Locating...";
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          document.getElementById('geoLat').value = pos.coords.latitude;
+          document.getElementById('geoLng').value = pos.coords.longitude;
+          btn.innerText = originalText;
+        },
+        err => {
+          alert("Location error: Ensure GPS is ON and permission is granted. " + err.message);
+          btn.innerText = originalText;
+        },
+        { enableHighAccuracy: true }
+      );
+    }
+
+    async function saveAdminGeofence() {
+      const sec = document.getElementById('geoSecName').value.trim();
+      const lat = document.getElementById('geoLat').value;
+      const lng = document.getElementById('geoLng').value;
+      const radius = document.getElementById('geoRadius').value;
+
+      if (!sec || !lat || !lng || !radius) return alert("Please fill all Geofence configuration fields.");
+
+      try {
+        const res = await apiCall({ action: "update_geofence", secretariat: sec, lat: lat, lng: lng, radius: radius });
+        alert(res.message);
+      } catch(e) {
+        alert("Error saving geofence data.");
+      }
     }
     
     // --- ADMIN AI GEOFENCE PUNCH ---
