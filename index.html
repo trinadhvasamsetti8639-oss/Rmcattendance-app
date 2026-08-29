@@ -8,6 +8,11 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+  
+  <!-- Interactive Map Dependencies -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
   <style>.glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }</style>
 </head>
 <body class="bg-slate-900 text-slate-800 min-h-screen flex flex-col justify-between">
@@ -125,19 +130,23 @@
         <button onclick="saveAdminSettings()" class="w-full py-2 bg-indigo-600 text-white font-semibold rounded-lg mt-2 shadow">Apply Security Lock</button>
       </div>
 
-      <!-- ADMIN GEOFENCE CONFIGURATION -->
+      <!-- ADMIN GEOFENCE INTERACTIVE MAP CONFIGURATION -->
       <div id="tabGeofence" class="glass p-5 rounded-2xl shadow space-y-3 hidden">
-        <h3 class="font-bold text-indigo-900 border-b pb-2">Geofence Configuration</h3>
-        <p class="text-xs text-slate-500 mb-2">Bind a Secretariat to a strict physical GPS boundary.</p>
+        <h3 class="font-bold text-indigo-900 border-b pb-2">Interactive Geofence Configuration</h3>
+        <p class="text-xs text-slate-500 mb-2">Search or click anywhere on the map to automatically extract the location's Latitude and Longitude.</p>
         
         <div class="flex gap-2">
           <input type="text" id="geoSecName" placeholder="Secretariat Name (Exact Match)" class="w-full p-2 border rounded text-sm font-semibold">
           <button onclick="fetchAdminGeofence(event)" class="bg-amber-500 text-white px-3 text-sm font-bold rounded shadow transition hover:bg-amber-600">Fetch</button>
         </div>
         
+        <!-- Interactive Map Container -->
+        <div id="interactiveMap" class="w-full h-48 rounded-lg border-2 border-slate-300 shadow-inner z-0 relative"></div>
+        <p class="text-[10px] text-center text-slate-400 mt-1">Tap/Click Map to drop a Geofence Pin</p>
+
         <div class="grid grid-cols-2 gap-2 mt-2">
-          <div><label class="text-xs font-bold text-slate-700">Latitude</label><input type="number" step="any" id="geoLat" placeholder="17.0005" class="w-full p-2 border rounded text-sm"></div>
-          <div><label class="text-xs font-bold text-slate-700">Longitude</label><input type="number" step="any" id="geoLng" placeholder="81.8040" class="w-full p-2 border rounded text-sm"></div>
+          <div><label class="text-xs font-bold text-slate-700">Latitude</label><input type="number" step="any" id="geoLat" readonly class="w-full p-2 border rounded text-sm bg-slate-100"></div>
+          <div><label class="text-xs font-bold text-slate-700">Longitude</label><input type="number" step="any" id="geoLng" readonly class="w-full p-2 border rounded text-sm bg-slate-100"></div>
         </div>
         
         <div class="mt-2"><label class="text-xs font-bold text-slate-700">Radius Boundary (Meters)</label><input type="number" id="geoRadius" value="50" class="w-full p-2 border rounded text-sm font-bold text-indigo-900"></div>
@@ -227,6 +236,9 @@
     let adminPunchTarget = null, adminCameraInstance = null, adminCapturedPhotoBase64 = null;
     let adminCurrentCoords = { lat: 0, lng: 0 }, isAdminGeofenceValid = false;
 
+    // Map instances
+    let leafletMap = null, mapMarker = null;
+
     async function apiCall(payload) {
       try {
         const response = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload), redirect: "follow" });
@@ -266,6 +278,30 @@
         const vid = document.getElementById(id);
         if (vid && vid.srcObject) { vid.srcObject.getTracks().forEach(t => t.stop()); vid.srcObject = null; }
       });
+    }
+
+    // --- LEAFLET MAP INITIALIZER ---
+    function initializeInteractiveMap(lat = 17.0005, lng = 81.8040, zoom = 12) {
+      if (!leafletMap) {
+        leafletMap = L.map('interactiveMap').setView([lat, lng], zoom);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(leafletMap);
+        
+        leafletMap.on('click', function(e) {
+          const lat = e.latlng.lat.toFixed(6);
+          const lng = e.latlng.lng.toFixed(6);
+          document.getElementById('geoLat').value = lat;
+          document.getElementById('geoLng').value = lng;
+          updateMapMarker(lat, lng);
+        });
+      } else {
+        leafletMap.setView([lat, lng], zoom);
+      }
+    }
+
+    function updateMapMarker(lat, lng) {
+      if (mapMarker) leafletMap.removeLayer(mapMarker);
+      mapMarker = L.marker([lat, lng]).addTo(leafletMap);
+      leafletMap.setView([lat, lng], 16);
     }
 
     async function fetchEmpData(event) {
@@ -343,6 +379,9 @@
       ['tabSettings','tabPunch','tabRequests','tabSubAdmin', 'tabGeofence'].forEach(id => document.getElementById(id).classList.add('hidden'));
       document.getElementById(tabId).classList.remove('hidden');
       stopCameras(); 
+      if (tabId === 'tabGeofence') {
+        setTimeout(() => { initializeInteractiveMap(); if(leafletMap) leafletMap.invalidateSize(); }, 200);
+      }
     }
 
     async function loginAdmin() {
@@ -378,11 +417,8 @@
     async function fetchAdminGeofence(event) {
       const sec = document.getElementById('geoSecName').value.trim();
       if (!sec) return alert("Please enter a Secretariat Name to fetch.");
-      
-      const btn = event.target;
-      const originalText = btn.innerText;
-      btn.innerText = "..."; 
-      btn.disabled = true;
+      const btn = event.target; const originalText = btn.innerText;
+      btn.innerText = "..."; btn.disabled = true;
 
       try {
         const res = await apiCall({ action: "get_geofence", secretariat: sec });
@@ -390,35 +426,25 @@
           document.getElementById('geoLat').value = res.geofence.lat;
           document.getElementById('geoLng').value = res.geofence.lng;
           document.getElementById('geoRadius').value = res.geofence.radius;
+          updateMapMarker(res.geofence.lat, res.geofence.lng);
         } else {
-          alert("No existing geofence found for this secretariat. You can set a new one.");
-          document.getElementById('geoLat').value = "";
-          document.getElementById('geoLng').value = "";
-          document.getElementById('geoRadius').value = "50";
+          alert("No existing geofence found for this secretariat. You can drop a pin on the map to set a new one.");
+          document.getElementById('geoLat').value = ""; document.getElementById('geoLng').value = ""; document.getElementById('geoRadius').value = "50";
         }
-      } catch (e) {
-        alert("Error fetching geofence.");
-      }
-      
-      btn.innerText = originalText; 
-      btn.disabled = false;
+      } catch (e) { alert("Error fetching geofence."); }
+      btn.innerText = originalText; btn.disabled = false;
     }
 
     function getAdminLocationForGeofence(event) {
-      const btn = event.target;
-      const originalText = btn.innerText;
-      btn.innerText = "Locating...";
+      const btn = event.target; const originalText = btn.innerText; btn.innerText = "Locating...";
       navigator.geolocation.getCurrentPosition(
         pos => {
           document.getElementById('geoLat').value = pos.coords.latitude;
           document.getElementById('geoLng').value = pos.coords.longitude;
+          updateMapMarker(pos.coords.latitude, pos.coords.longitude);
           btn.innerText = originalText;
         },
-        err => {
-          alert("Location error: Ensure GPS is ON and permission is granted. " + err.message);
-          btn.innerText = originalText;
-        },
-        { enableHighAccuracy: true }
+        err => { alert("Location error: Ensure GPS is ON. " + err.message); btn.innerText = originalText; }, { enableHighAccuracy: true }
       );
     }
 
@@ -428,14 +454,12 @@
       const lng = document.getElementById('geoLng').value;
       const radius = document.getElementById('geoRadius').value;
 
-      if (!sec || !lat || !lng || !radius) return alert("Please fill all Geofence configuration fields.");
+      if (!sec || !lat || !lng || !radius) return alert("Please fill all Geofence fields or click on the map.");
 
       try {
         const res = await apiCall({ action: "update_geofence", secretariat: sec, lat: lat, lng: lng, radius: radius });
         alert(res.message);
-      } catch(e) {
-        alert("Error saving geofence data.");
-      }
+      } catch(e) { alert("Error saving geofence data."); }
     }
     
     // --- ADMIN AI GEOFENCE PUNCH ---
@@ -643,9 +667,14 @@
         const payload = { action: "mark_attendance", type: type, cfmsId: currentUser.cfmsId, name: currentUser.name, secretariat: currentUser.secretariat, photoBase64: capturedPhotoBase64, lat: currentCoords.lat, lng: currentCoords.lng };
         const res = await apiCall(payload);
         if (res.success) { 
+          // FIXED: Displays the requested success message, then wipes the data and logs out.
           alert(`User With CFMSID ${currentUser.cfmsId} and Name ${currentUser.name} Successfully Marked ${type} time.`); 
           logout(); 
-        } else { alert(res.message); btn.innerText = txt; btn.disabled = false; }
+        } else { 
+          // FIXED: If user clicks the button but already punched in/out today, show the specific block message.
+          alert(res.message); 
+          btn.innerText = txt; btn.disabled = false; 
+        }
       } catch (err) { alert("Submit Error: " + err.message); btn.innerText = txt; btn.disabled = false;}
     }
   </script>
