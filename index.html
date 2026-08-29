@@ -195,7 +195,7 @@
 
   <script>
     // ⚠️ UPDATE THIS LINK ⚠️
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyQlzUKPlRoeq30oDoBjYZW_8d_y6oDM_6bNTFNrYhoIfVg-mUVO0duAACy_K9Cfruv/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwBbSayL15AA26Qw9KdiR8kWi4GfkE5nziyM-lLm2tlPpTQpSLSgZnSkVhE-XMirTNI/exec";
 
     let currentUser = null, cameraInstance = null, modelsLoaded = false, livenessVerified = false, capturedPhotoBase64 = null;
     let currentCoords = { lat: 0, lng: 0 }, isGeofenceValid = false;
@@ -481,7 +481,6 @@
       } catch (err) { alert("Emp Login Error: " + err.message); }
     }
 
-    // Geofence check acts as absolute gatekeeper before AI starts
     function verifyLocationAndInitCamera() {
       const geoStatus = document.getElementById('geoStatus'); geoStatus.innerText = "Checking GPS Location...";
       navigator.geolocation.getCurrentPosition(async pos => {
