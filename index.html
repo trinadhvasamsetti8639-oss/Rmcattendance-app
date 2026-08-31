@@ -23,7 +23,6 @@
 
   <main class="container mx-auto p-4 max-w-md flex-1 relative">
 
-    <!-- GENERIC FACE SCANNER OVERLAY MODAL -->
     <div id="faceScanModal" class="fixed inset-0 bg-black/95 z-50 hidden flex-col items-center justify-center p-4">
       <h3 class="text-white font-bold text-xl mb-4 text-center">AI Identity Scan</h3>
       <div class="relative w-full max-w-sm aspect-square bg-slate-800 rounded-2xl overflow-hidden border-4 border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.5)]">
@@ -33,7 +32,6 @@
       <button onclick="closeFaceScanner()" class="mt-6 px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-full shadow">Cancel Scan</button>
     </div>
 
-    <!-- ROLE SELECTOR -->
     <div id="roleView" class="glass p-6 rounded-2xl shadow-xl mt-8 text-center space-y-4">
       <h2 class="text-xl font-bold text-indigo-900">Select Portal</h2>
       <button onclick="showRegistration()" class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl shadow-md transition">Employee Self Registration</button>
@@ -113,10 +111,8 @@
       <button onclick="showHome()" class="w-full text-slate-500 text-sm font-medium">Back</button>
     </div>
 
-    <!-- ADMIN DASHBOARD (TABS) -->
+    <!-- ADMIN DASHBOARD -->
     <div id="adminDashboardView" class="hidden space-y-4 mt-4">
-      
-      <!-- UPDATED VISUAL TAB NAVIGATOR -->
       <div class="flex flex-wrap justify-between gap-1 p-1 bg-slate-200 rounded-lg text-[10px] sm:text-xs font-bold mb-4">
         <button id="btn_tabSettings" onclick="switchTab('tabSettings')" class="flex-1 py-2 px-1 rounded-md text-slate-600 hover:bg-white transition">Control</button>
         <button id="btn_tabGeofence" onclick="switchTab('tabGeofence')" class="flex-1 py-2 px-1 rounded-md text-slate-600 hover:bg-white transition">Geofence</button>
@@ -225,6 +221,7 @@
         <div id="aiPrompt" class="absolute bottom-3 bg-black/75 text-white text-xs px-3 py-1.5 rounded-full font-semibold border border-white/20">Initializing AI...</div>
       </div>
       <div class="grid grid-cols-2 gap-3">
+        <!-- Buttons default to disabled until verification and check completes -->
         <button id="btnIn" onclick="punchAttendance('IN')" disabled class="py-3 bg-emerald-600 disabled:bg-slate-400 text-white font-bold rounded-xl shadow transition">Punch IN</button>
         <button id="btnOut" onclick="punchAttendance('OUT')" disabled class="py-3 bg-red-600 disabled:bg-slate-400 text-white font-bold rounded-xl shadow transition">Punch OUT</button>
       </div>
@@ -271,30 +268,32 @@
     function logout() { 
       currentUser = null; isGeofenceValid = false; livenessVerified = false; capturedPhotoBase64 = null; currentCoords = { lat: 0, lng: 0 };
       adminPunchTarget = null; adminCapturedPhotoBase64 = null; adminCurrentCoords = { lat: 0, lng: 0 }; isAdminGeofenceValid = false;
-      if(document.getElementById('btnIn')) { document.getElementById('btnIn').disabled = true; document.getElementById('btnIn').innerText = "Punch IN"; }
-      if(document.getElementById('btnOut')) { document.getElementById('btnOut').disabled = true; document.getElementById('btnOut').innerText = "Punch OUT"; }
+      
+      const btnIn = document.getElementById('btnIn');
+      if (btnIn) { btnIn.disabled = true; btnIn.innerText = "Punch IN"; btnIn.classList.remove('bg-slate-500'); btnIn.classList.add('bg-emerald-600'); }
+      
+      const btnOut = document.getElementById('btnOut');
+      if (btnOut) { btnOut.disabled = true; btnOut.innerText = "Punch OUT"; btnOut.classList.remove('bg-slate-500'); btnOut.classList.add('bg-red-600'); }
+      
       if(document.getElementById('aiPrompt')) document.getElementById('aiPrompt').innerText = "Initializing AI...";
       stopCameras(); showHome(); 
     }
 
     function stopCameras() {
       if (cameraInstance) { cameraInstance.stop(); cameraInstance = null; }
-      ['regWebcam', 'webcam'].forEach(id => {
+      if (adminCameraInstance) { adminCameraInstance.stop(); adminCameraInstance = null; }
+      ['regWebcam', 'webcam', 'adminWebcam'].forEach(id => {
         const vid = document.getElementById(id);
         if (vid && vid.srcObject) { vid.srcObject.getTracks().forEach(t => t.stop()); vid.srcObject = null; }
       });
       closeFaceScanner(); 
     }
 
-    // --- TAB SWITCHER LOGIC ---
     function switchTab(tabId) {
       const tabs = ['tabSettings','tabGeofence','tabPunch','tabRequests','tabSubAdmin'];
-      
       tabs.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('hidden');
-        
-        // Dynamically style the visual tab buttons
         const btn = document.getElementById('btn_' + id);
         if (btn) {
           if (id === tabId) {
@@ -306,10 +305,8 @@
           }
         }
       });
-      
       const activeTab = document.getElementById(tabId);
       if (activeTab) activeTab.classList.remove('hidden');
-      
       stopCameras(); 
       if (tabId === 'tabGeofence') setTimeout(() => { initializeInteractiveMap(); if(leafletMap) leafletMap.invalidateSize(); }, 200);
     }
@@ -381,8 +378,7 @@
         if (res.success) {
           hideAll(); document.getElementById('adminDashboardView').classList.remove('hidden');
           if (res.role === "MAIN") document.getElementById('btn_tabSubAdmin').classList.remove('hidden');
-          
-          switchTab('tabSettings'); // Force proper UI activation
+          switchTab('tabSettings'); 
           loadAdminSettings(); loadRequests();
         } else alert(res.message);
       } catch (err) { alert("Login Error: " + err.message); }
@@ -496,9 +492,7 @@
         if (res.success) { 
           hideAll(); document.getElementById('adminDashboardView').classList.remove('hidden'); initFaceAPI();
           if (res.role === "MAIN") document.getElementById('btn_tabSubAdmin').classList.remove('hidden');
-          
-          switchTab('tabSettings'); // Force proper UI activation immediately
-          
+          switchTab('tabSettings'); 
           loadAdminSettings(); loadRequests();
         } else alert(res.message);
       } catch (err) { alert("Login failed."); }
@@ -513,7 +507,7 @@
           document.getElementById('set_in_start').value = res.inStart; document.getElementById('set_in_end').value = res.inEnd;
           document.getElementById('set_out_start').value = res.outStart; document.getElementById('set_out_end').value = res.outEnd;
         }
-      } catch (e) { console.error(e); }
+      } catch (e) {}
     }
 
     async function saveAdminSettings() {
@@ -660,8 +654,10 @@
             if (dist <= radius) {
               isGeofenceValid = true; geoStatus.innerText = `Verified: Inside ${currentUser.secretariat}`; geoStatus.className = "text-xs font-semibold text-emerald-600"; startAI();
             } else {
-              isGeofenceValid = false; geoStatus.innerText = `Outside Geofence: ${Math.round(dist)}m away`; geoStatus.className = "text-xs font-semibold text-red-600"; 
-              document.getElementById('aiPrompt').innerText = "❌ Geofence Failed. AI Locked."; alert("Outside designated geofence! Cannot mark attendance.");
+              isGeofenceValid = false; 
+              geoStatus.innerText = `Outside Geofence: ${Math.round(dist)}m away`; geoStatus.className = "text-xs font-semibold text-red-600"; 
+              document.getElementById('aiPrompt').innerText = "❌ Geofence Failed. AI Locked.";
+              alert("Outside designated geofence! Cannot mark attendance.");
             }
           } else {
             isGeofenceValid = true; geoStatus.innerText = "No Geofence Set. Starting AI..."; startAI();
@@ -693,17 +689,40 @@
              prompt.innerText = "✅ Identity Verified! Select IN/OUT"; prompt.className = "absolute bottom-3 bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-full";
              const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 480; const ctx = canvas.getContext('2d'); ctx.translate(480, 0); ctx.scale(-1, 1); ctx.drawImage(videoElement, 0, 0, 480, 480);
              capturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
-             if (isGeofenceValid) { document.getElementById('btnIn').disabled = false; document.getElementById('btnOut').disabled = false; }
+             
+             if (isGeofenceValid) { 
+               const btnIn = document.getElementById('btnIn');
+               const btnOut = document.getElementById('btnOut');
+               
+               // DUPLICATE PUNCH SYSTEM BLOCKER
+               if (currentUser.punchedIn) {
+                   btnIn.disabled = true; btnIn.innerText = "IN Captured";
+                   btnIn.classList.remove('bg-emerald-600'); btnIn.classList.add('bg-slate-500');
+               } else { btnIn.disabled = false; }
+               
+               if (currentUser.punchedOut) {
+                   btnOut.disabled = true; btnOut.innerText = "OUT Captured";
+                   btnOut.classList.remove('bg-red-600'); btnOut.classList.add('bg-slate-500');
+               } else { btnOut.disabled = false; }
+               
+               if (currentUser.punchedIn && currentUser.punchedOut) {
+                   prompt.innerText = "Attendance Completed for Today!";
+                   prompt.className = "absolute bottom-3 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full";
+               }
+             }
           } else { 
+             // IMPOSTER FRAUD PROTOCOL
              prompt.innerText = "❌ FRAUD DETECTED!"; prompt.className = "absolute bottom-3 bg-red-600 text-white text-xs px-3 py-1.5 rounded-full"; 
              document.getElementById('btnIn').disabled = true; document.getElementById('btnOut').disabled = true;
              
              const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 480; 
              const ctx = canvas.getContext('2d'); ctx.translate(480, 0); ctx.scale(-1, 1); ctx.drawImage(videoElement, 0, 0, 480, 480);
              const fraudPhoto = canvas.toDataURL('image/jpeg', 0.85);
+             
              if (cameraInstance) { cameraInstance.stop(); }
              
              apiCall({ action: "log_fraud", cfmsId: currentUser.cfmsId, name: currentUser.name, secretariat: currentUser.secretariat, lat: currentCoords.lat, lng: currentCoords.lng, photoBase64: fraudPhoto });
+             
              alert("You are not registered user with CFMS ID. You are trying to give fake attendance and your face is captured for disciplinary action.");
              logout(); 
           }
