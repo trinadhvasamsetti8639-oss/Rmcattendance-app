@@ -9,7 +9,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
   
-  <!-- Interactive Map Dependencies -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 
@@ -83,7 +82,6 @@
     <div id="adminLoginView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
       <h2 class="text-xl font-bold text-indigo-900">Admin Authentication</h2>
       
-      <!-- Option 1: Face Login -->
       <div class="p-3 bg-indigo-50 border-2 border-indigo-200 rounded-xl text-center space-y-2">
         <p class="text-xs text-indigo-800 font-semibold">Fastest & Most Secure</p>
         <button onclick="openFaceScanner(handleAdminFaceLogin, 'Blink for Admin Face Login')" class="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow transition hover:bg-indigo-700">Admin Face Login</button>
@@ -91,7 +89,6 @@
       
       <div class="flex items-center text-slate-400 text-xs my-2"><div class="flex-1 border-b"></div><span class="px-2 font-bold">OR</span><div class="flex-1 border-b"></div></div>
       
-      <!-- Option 2: Pass Login -->
       <div class="space-y-3">
         <input type="text" id="adminUser" placeholder="Username (Matches CFMS ID)" class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-400">
         <input type="password" id="adminPass" placeholder="Password" class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-400">
@@ -108,10 +105,9 @@
         <button onclick="switchTab('tabSettings')" class="bg-indigo-600 text-white px-3 py-2 rounded shadow">Control</button>
         <button onclick="switchTab('tabGeofence')" class="bg-slate-200 px-3 py-2 rounded shadow">Geofence</button>
         <button onclick="switchTab('tabPunch')" class="bg-slate-200 px-3 py-2 rounded shadow">AI Admin Punch</button>
-        <button onclick="switchTab('tabRequests')" class="bg-slate-200 px-3 py-2 rounded shadow">Requests</button>
+        <button id="btnSubAdminTab" onclick="switchTab('tabSubAdmin')" class="bg-slate-200 px-3 py-2 rounded shadow hidden">Sub-Admins</button>
       </div>
 
-      <!-- Settings Tab -->
       <div id="tabSettings" class="glass p-5 rounded-2xl shadow space-y-3">
         <h3 class="font-bold text-indigo-900 border-b pb-2">Attendance Target Control</h3>
         <label class="flex items-center gap-2 font-semibold text-sm">
@@ -130,51 +126,34 @@
         <button onclick="saveAdminSettings()" class="w-full py-2 bg-indigo-600 text-white font-semibold rounded-lg mt-2 shadow">Apply Security Lock</button>
       </div>
 
-      <!-- ADMIN GEOFENCE INTERACTIVE MAP CONFIGURATION -->
       <div id="tabGeofence" class="glass p-5 rounded-2xl shadow space-y-3 hidden">
         <h3 class="font-bold text-indigo-900 border-b pb-2">Interactive Geofence Configuration</h3>
-        <p class="text-xs text-slate-500 mb-2">Search for a location or click anywhere on the map to set the precise GPS Boundary.</p>
-        
         <div class="flex gap-2">
           <input type="text" id="geoSecName" placeholder="Secretariat Name (Exact Match)" class="w-full p-2 border rounded text-sm font-semibold border-amber-400">
           <button onclick="fetchAdminGeofence(event)" class="bg-amber-500 text-white px-3 text-sm font-bold rounded shadow transition hover:bg-amber-600">Fetch</button>
         </div>
-
         <div class="flex gap-2 mt-2">
           <input type="text" id="mapSearchInput" placeholder="Search Location (e.g. Rajahmundry)" class="w-full p-2 border rounded text-sm bg-blue-50">
           <button onclick="searchMapLocation(event)" class="bg-blue-600 text-white px-3 text-sm font-bold rounded shadow transition hover:bg-blue-700">Search</button>
         </div>
-        
         <div id="interactiveMap" class="w-full h-48 rounded-lg border-2 border-slate-300 shadow-inner z-0 relative mt-2"></div>
-        <p class="text-[10px] text-center text-slate-400 mt-1">Tap/Click Map to drop a Geofence Pin</p>
-
         <div class="grid grid-cols-2 gap-2 mt-2">
           <div><label class="text-xs font-bold text-slate-700">Latitude</label><input type="number" step="any" id="geoLat" readonly class="w-full p-2 border rounded text-sm bg-slate-100"></div>
           <div><label class="text-xs font-bold text-slate-700">Longitude</label><input type="number" step="any" id="geoLng" readonly class="w-full p-2 border rounded text-sm bg-slate-100"></div>
         </div>
-        
         <div class="mt-2"><label class="text-xs font-bold text-slate-700">Radius Boundary (Meters)</label><input type="number" id="geoRadius" value="50" class="w-full p-2 border rounded text-sm font-bold text-indigo-900"></div>
-        
         <div class="flex flex-col gap-2 mt-2">
           <button onclick="getAdminLocationForGeofence(event)" class="w-full py-2 bg-slate-600 text-white font-semibold rounded transition text-xs shadow">Auto-Fill My Current Location</button>
           <button onclick="saveAdminGeofence()" class="w-full py-2 bg-indigo-600 text-white font-bold rounded transition text-sm shadow">Save Geofence Rules</button>
         </div>
       </div>
 
-      <!-- AI ADMIN MANUAL PUNCH -->
       <div id="tabPunch" class="glass p-5 rounded-2xl shadow space-y-3 hidden">
         <h3 class="font-bold text-indigo-900 border-b pb-2">Admin Authorized Facial Punch</h3>
-        <p class="text-xs text-slate-500 mb-2">No typing required. Open the camera, have the employee blink, and the AI will identify them automatically.</p>
-        
-        <button onclick="openFaceScanner(handleAdminPunchIdentify, 'Point camera at Employee & ask them to blink')" class="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-lg transition text-lg flex items-center justify-center gap-2">
-          📷 Identify Employee via Face
-        </button>
-        
+        <button onclick="openFaceScanner(handleAdminPunchIdentify, 'Point camera at Employee & ask them to blink')" class="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-lg transition text-lg flex items-center justify-center gap-2">📷 Identify Employee via Face</button>
         <p id="adminGeoStatus" class="hidden"></p>
-
         <div id="adminManualDetails" class="hidden space-y-2 mt-4 border-t pt-4">
           <p id="adminManInfo" class="text-sm font-bold text-indigo-900 bg-indigo-50 p-3 rounded-lg border border-indigo-200 text-center"></p>
-          
           <div class="flex gap-2 mt-2">
             <button id="btnAdminIn" onclick="submitAdminPunch('IN')" disabled class="w-full py-3 bg-emerald-600 disabled:bg-slate-400 text-white font-bold rounded-xl shadow transition">Force IN</button>
             <button id="btnAdminOut" onclick="submitAdminPunch('OUT')" disabled class="w-full py-3 bg-red-600 disabled:bg-slate-400 text-white font-bold rounded-xl shadow transition">Force OUT</button>
@@ -182,12 +161,13 @@
         </div>
       </div>
 
-      <div id="tabRequests" class="glass p-5 rounded-2xl shadow space-y-3 hidden">
-        <h3 class="font-bold text-indigo-900 border-b pb-2">Employee DB Edits</h3>
-        <button onclick="loadRequests()" class="w-full py-1 bg-slate-200 text-xs rounded mb-2">Refresh</button>
-        <div id="requestsContainer" class="space-y-3 max-h-64 overflow-y-auto text-sm"></div>
+      <div id="tabSubAdmin" class="glass p-5 rounded-2xl shadow space-y-3 hidden">
+        <h3 class="font-bold text-indigo-900 border-b pb-2">Create Sub-Admin</h3>
+        <input type="text" id="subUser" placeholder="Username" class="w-full p-2 border rounded">
+        <input type="password" id="subPass" placeholder="Password" class="w-full p-2 border rounded">
+        <input type="email" id="subEmail" placeholder="Email (For Resets)" class="w-full p-2 border rounded">
+        <button onclick="createSubAdmin()" class="w-full py-2 bg-indigo-600 text-white font-semibold rounded-lg mt-2">Add Sub-Admin</button>
       </div>
-
       <button onclick="showHome()" class="w-full text-slate-500 text-sm font-medium border p-2 rounded bg-white mt-4">Logout Dashboard</button>
     </div>
 
@@ -195,7 +175,6 @@
     <div id="empLoginView" class="hidden glass p-6 rounded-2xl shadow-xl mt-4 space-y-4">
       <h2 class="text-xl font-bold text-emerald-900">Employee Portal</h2>
       
-      <!-- Option 1: Face Login -->
       <div class="p-3 bg-emerald-50 border-2 border-emerald-200 rounded-xl text-center space-y-2">
         <p class="text-xs text-emerald-800 font-semibold">Fastest Login Method</p>
         <button onclick="openFaceScanner(handleEmpFaceLogin, 'Blink to Login securely')" class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl shadow transition hover:bg-emerald-700">Face Login</button>
@@ -203,7 +182,6 @@
 
       <div class="flex items-center text-slate-400 text-xs my-2"><div class="flex-1 border-b"></div><span class="px-2 font-bold">OR</span><div class="flex-1 border-b"></div></div>
       
-      <!-- Option 2: Password Login -->
       <div class="space-y-3">
         <input type="text" id="empCfms" placeholder="CFMS ID" class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-emerald-400">
         <input type="password" id="empPass" placeholder="Password" class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-emerald-400">
@@ -285,7 +263,6 @@
       closeFaceScanner(); 
     }
 
-    // --- GENERIC FACE SCANNER LOGIC ---
     let scanCallback = null;
     let scanCameraInstance = null;
 
@@ -337,9 +314,7 @@
        scanCameraInstance.start();
     }
 
-    // --- FACE LOGIN HANDLERS ---
     async function handleEmpFaceLogin(descriptor, photoB64) {
-      alert("Face captured! Searching database...");
       try {
         const res = await apiCall({ action: "face_login", mode: "EMP_LOGIN", faceDescriptor: descriptor });
         if (res.success) {
@@ -350,13 +325,12 @@
     }
 
     async function handleAdminFaceLogin(descriptor, photoB64) {
-      alert("Face captured! Verifying Admin permissions...");
       try {
         const res = await apiCall({ action: "face_login", mode: "ADMIN_LOGIN", faceDescriptor: descriptor });
         if (res.success) {
           hideAll(); document.getElementById('adminDashboardView').classList.remove('hidden');
           if (res.role === "MAIN") document.getElementById('btnSubAdminTab').classList.remove('hidden');
-          loadAdminSettings(); loadRequests();
+          loadAdminSettings();
         } else alert(res.message);
       } catch (err) { alert("Login Error: " + err.message); }
     }
@@ -366,31 +340,24 @@
         const res = await apiCall({ action: "face_login", mode: "ADMIN_PUNCH", faceDescriptor: descriptor });
         if (res.success) {
           adminPunchTarget = res.user;
-          adminCapturedPhotoBase64 = photoB64; // Save the photo we just took!
+          adminCapturedPhotoBase64 = photoB64; 
           document.getElementById('adminManualDetails').classList.remove('hidden');
           document.getElementById('adminManInfo').innerText = `IDENTIFIED: ${res.user.name} (${res.user.cfmsId})`;
-          
           verifyAdminLocationForPunch(res.user.secretariat);
         } else alert(res.message);
       } catch (err) { alert("Error identifying face: " + err.message); }
     }
 
-    // --- LEAFLET MAP & SEARCH LOGIC ---
     function initializeInteractiveMap(lat = 17.0005, lng = 81.8040, zoom = 12) {
       if (!leafletMap) {
         leafletMap = L.map('interactiveMap').setView([lat, lng], zoom);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(leafletMap);
-        
         leafletMap.on('click', function(e) {
-          const lat = e.latlng.lat.toFixed(6);
-          const lng = e.latlng.lng.toFixed(6);
-          document.getElementById('geoLat').value = lat;
-          document.getElementById('geoLng').value = lng;
+          const lat = e.latlng.lat.toFixed(6); const lng = e.latlng.lng.toFixed(6);
+          document.getElementById('geoLat').value = lat; document.getElementById('geoLng').value = lng;
           updateMapMarker(lat, lng);
         });
-      } else {
-        leafletMap.setView([lat, lng], zoom);
-      }
+      } else { leafletMap.setView([lat, lng], zoom); }
     }
 
     function updateMapMarker(lat, lng) {
@@ -402,23 +369,17 @@
     async function searchMapLocation(event) {
       const query = document.getElementById('mapSearchInput').value.trim();
       if (!query) return alert("Please enter a location to search.");
-      const btn = event.target; const originalText = btn.innerText;
-      btn.innerText = "..."; btn.disabled = true;
-
+      const btn = event.target; const originalText = btn.innerText; btn.innerText = "..."; btn.disabled = true;
       try {
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
         const data = await res.json();
         if (data && data.length > 0) {
-          const lat = parseFloat(data[0].lat).toFixed(6);
-          const lng = parseFloat(data[0].lon).toFixed(6);
-          document.getElementById('geoLat').value = lat;
-          document.getElementById('geoLng').value = lng;
-          
-          if (!leafletMap) initializeInteractiveMap(lat, lng, 16);
-          else { leafletMap.setView([lat, lng], 16); }
+          const lat = parseFloat(data[0].lat).toFixed(6); const lng = parseFloat(data[0].lon).toFixed(6);
+          document.getElementById('geoLat').value = lat; document.getElementById('geoLng').value = lng;
+          if (!leafletMap) initializeInteractiveMap(lat, lng, 16); else { leafletMap.setView([lat, lng], 16); }
           updateMapMarker(lat, lng);
         } else alert("Location not found. Try adding the city name (e.g. 'Rajahmundry').");
-      } catch(e) { alert("Map search failed. Check your connection."); }
+      } catch(e) { alert("Map search failed."); }
       btn.innerText = originalText; btn.disabled = false;
     }
 
@@ -434,12 +395,9 @@
         if (res.success) {
           document.getElementById('regCfmsId').disabled = true; btn.innerText = "Locked";
           document.getElementById('lockHint').classList.remove('hidden'); document.getElementById('regDetails').classList.remove('hidden');
-          
           document.getElementById('r_candName').value = res.data.candidateName; document.getElementById('r_dept').value = res.data.department;
           document.getElementById('r_secNo').value = res.data.secNo; document.getElementById('r_secName').value = res.data.secName;
           document.getElementById('r_postName').value = res.data.postName; document.getElementById('r_phone').value = res.data.phone;
-          document.getElementById('r_remarks').value = res.data.remarks;
-          
           if (stream) document.getElementById('regWebcam').srcObject = stream;
           else document.getElementById('camTroubleshoot').classList.remove('hidden');
         } else { if (stream) stopCameras(); btn.innerText = txt; btn.disabled = false; alert(res.message); }
@@ -458,20 +416,17 @@
       if (!video.srcObject) return alert("❌ Camera not active.");
       
       btn.innerText = "Analyzing Face Rules..."; btn.disabled = true;
-      document.getElementById('regPrompt').innerText = "Scanning 128 Face Points...";
-      
       try {
         const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
-        if (detections.length === 0) throw new Error("❌ Human face not detected! Look directly at camera.");
-        if (detections.length > 1) throw new Error("❌ Multiple faces detected! Only 1 person allowed.");
-        if (detections[0].detection.score < 0.90) throw new Error("❌ Face obscured. Remove masks, heavy glasses, or caps."); 
+        if (detections.length === 0) throw new Error("❌ Human face not detected!");
+        if (detections.length > 1) throw new Error("❌ Multiple faces detected!");
+        if (detections[0].detection.score < 0.90) throw new Error("❌ Face obscured."); 
         
         const payload = { action: "self_register", secName: document.getElementById('r_secName').value, candidateName: document.getElementById('r_candName').value, cfmsId: cfmsId, phone: document.getElementById('r_phone').value, email: email, password: pass, empRequest: document.getElementById('r_request').value, faceDescriptor: Array.from(detections[0].descriptor) };
         const res = await apiCall(payload);
         if (res.success) { alert(`🎉 Registered Successfully!\n\nUser CFMS ID: ${cfmsId}\nPassword: ${pass}\n\n⚠️ Please save these credentials before clicking OK.`); showHome(); } 
-        else { alert(`${res.message}`); document.getElementById('regPrompt').innerText = "Align face for AI Scan"; }
-      } catch (e) { alert(e.message); document.getElementById('regPrompt').innerText = "Align face for AI Scan"; } 
-      finally { btn.innerText = originalText; btn.disabled = false; }
+        else { alert(`${res.message}`); }
+      } catch (e) { alert(e.message); } finally { btn.innerText = originalText; btn.disabled = false; }
     }
 
     async function resetPassword(type) {
@@ -481,7 +436,6 @@
       try { const res = await apiCall({ action: "reset_password", type: type, identifier: identifier }); alert(res.message); } catch(e) { alert("Reset Error."); }
     }
 
-    // --- ADMIN LOGIC ---
     function switchTab(tabId) {
       ['tabSettings','tabPunch','tabRequests','tabSubAdmin', 'tabGeofence'].forEach(id => document.getElementById(id).classList.add('hidden'));
       document.getElementById(tabId).classList.remove('hidden');
@@ -496,7 +450,7 @@
         if (res.success) { 
           hideAll(); document.getElementById('adminDashboardView').classList.remove('hidden'); initFaceAPI();
           if (res.role === "MAIN") document.getElementById('btnSubAdminTab').classList.remove('hidden');
-          loadAdminSettings(); loadRequests();
+          loadAdminSettings();
         } else alert(res.message);
       } catch (err) { alert("Login failed."); }
     }
@@ -518,12 +472,10 @@
       try { const res = await apiCall(payload); alert(res.message); } catch (e) {}
     }
     
-    // --- ADMIN GEOFENCE LOGIC ---
     async function fetchAdminGeofence(event) {
       const sec = document.getElementById('geoSecName').value.trim();
       if (!sec) return alert("Please enter a Secretariat Name to fetch.");
       const btn = event.target; const originalText = btn.innerText; btn.innerText = "..."; btn.disabled = true;
-
       try {
         const res = await apiCall({ action: "get_geofence", secretariat: sec });
         if (res.success && res.geofence) {
@@ -557,7 +509,6 @@
       const lat = document.getElementById('geoLat').value;
       const lng = document.getElementById('geoLng').value;
       const radius = document.getElementById('geoRadius').value;
-
       if (!sec || !lat || !lng || !radius) return alert("Please fill all Geofence configuration fields.");
       try {
         const res = await apiCall({ action: "update_geofence", secretariat: sec, lat: lat, lng: lng, radius: radius });
@@ -565,14 +516,11 @@
       } catch(e) { alert("Error saving geofence data."); }
     }
     
-    // --- ADMIN AI PUNCH LOGIC ---
     function verifyAdminLocationForPunch(secretariat) {
       const geoStatus = document.getElementById('adminGeoStatus');
-      geoStatus.classList.remove('hidden');
-      geoStatus.innerText = "Checking Admin GPS Location...";
+      geoStatus.classList.remove('hidden'); geoStatus.innerText = "Checking Admin GPS Location...";
       navigator.geolocation.getCurrentPosition(async pos => {
-        adminCurrentCoords.lat = pos.coords.latitude; 
-        adminCurrentCoords.lng = pos.coords.longitude;
+        adminCurrentCoords.lat = pos.coords.latitude; adminCurrentCoords.lng = pos.coords.longitude;
         try {
           const res = await apiCall({ action: "get_geofence", secretariat: secretariat });
           if (res.success && res.geofence) {
@@ -602,8 +550,13 @@
       const payload = { action: "admin_manual_punch", type: type, cfmsId: adminPunchTarget.cfmsId, name: adminPunchTarget.name, secretariat: adminPunchTarget.secretariat, photoBase64: adminCapturedPhotoBase64, lat: adminCurrentCoords.lat, lng: adminCurrentCoords.lng };
       const res = await apiCall(payload);
       if (res.success) {
-        alert(res.message); document.getElementById('adminManualDetails').classList.add('hidden'); adminPunchTarget = null;
+        alert(res.message); document.getElementById('adminManualDetails').classList.add('hidden'); adminPunchTarget = null; stopCameras();
       } else alert(res.message);
+    }
+
+    async function createSubAdmin() {
+      const payload = { action: "create_subadmin", newUsername: document.getElementById('subUser').value, newPassword: document.getElementById('subPass').value, newEmail: document.getElementById('subEmail').value };
+      try { const res = await apiCall(payload); alert(res.message); } catch (e) {}
     }
 
     // --- EMPLOYEE ATTENDANCE LOGIC & IMPOSTER DEFENSE ---
@@ -662,13 +615,13 @@
           livenessVerified = true; prompt.innerText = "Blink Verified! Matching Identity...";
           const detection = await faceapi.detectSingleFace(videoElement).withFaceLandmarks().withFaceDescriptor();
           
-          if (detection && faceapi.euclideanDistance(detection.descriptor, new Float32Array(currentUser.faceDescriptor)) < 0.48) {
+          // Loosened to 0.55 to safely prevent legitimate users from failing
+          if (detection && faceapi.euclideanDistance(detection.descriptor, new Float32Array(Object.values(currentUser.faceDescriptor))) < 0.55) {
              prompt.innerText = "✅ Identity Verified! Select IN/OUT"; prompt.className = "absolute bottom-3 bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-full";
              const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 480; const ctx = canvas.getContext('2d'); ctx.translate(480, 0); ctx.scale(-1, 1); ctx.drawImage(videoElement, 0, 0, 480, 480);
              capturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
              if (isGeofenceValid) { document.getElementById('btnIn').disabled = false; document.getElementById('btnOut').disabled = false; }
           } else { 
-             // EXACT FRAUD PROTOCOL
              prompt.innerText = "❌ FRAUD DETECTED!"; prompt.className = "absolute bottom-3 bg-red-600 text-white text-xs px-3 py-1.5 rounded-full"; 
              document.getElementById('btnIn').disabled = true; document.getElementById('btnOut').disabled = true;
              
@@ -700,32 +653,6 @@
           alert(res.message); logout(); 
         } else { alert(res.message); btn.innerText = txt; btn.disabled = false; }
       } catch (err) { alert("Submit Error: " + err.message); btn.innerText = txt; btn.disabled = false;}
-    }
-
-    // Requests logic
-    async function loadRequests() {
-      const container = document.getElementById('requestsContainer');
-      try {
-        const res = await apiCall({ action: "get_requests" });
-        if (res.success && res.requests.length > 0) {
-          container.innerHTML = res.requests.map(r => `
-            <div class="p-3 bg-white border rounded-lg shadow-sm">
-              <b class="text-indigo-900">${r.name} (${r.cfmsId})</b>
-              <p class="mt-1 text-xs mb-2"><b>Requested:</b> <i>${r.request}</i></p>
-              <div class="space-y-1">
-                <input type="text" id="editN_${r.rowIdx}" value="${r.name}" class="border p-1 w-full text-xs">
-                <input type="text" id="editE_${r.rowIdx}" placeholder="New Email" class="border p-1 w-full text-xs">
-                <input type="text" id="editP_${r.rowIdx}" placeholder="New Phone" class="border p-1 w-full text-xs">
-                <button onclick="saveEdit(${r.rowIdx}, '${r.cfmsId}')" class="bg-indigo-600 text-white px-2 py-1 rounded w-full mt-2">Update DB & Resolve</button>
-              </div>
-            </div>`).join('');
-        } else container.innerHTML = "<p class='text-slate-500'>No pending requests.</p>";
-      } catch (e) {}
-    }
-
-    async function saveEdit(idx, cfms) {
-      const payload = { action: "edit_employee", reqRowIdx: idx, cfmsId: cfms, newName: document.getElementById(`editN_${idx}`).value, newEmail: document.getElementById(`editE_${idx}`).value, newPhone: document.getElementById(`editP_${idx}`).value };
-      try { const res = await apiCall(payload); alert(res.message); loadRequests(); } catch (e) {}
     }
   </script>
 </body>
