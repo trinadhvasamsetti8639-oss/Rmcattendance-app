@@ -63,8 +63,6 @@
           <input type="text" id="r_postName" readonly class="w-full p-2 bg-white rounded border border-slate-300 text-sm font-semibold text-slate-700"></div>
           <div><label class="text-[10px] text-slate-500 font-bold uppercase">Phone No</label>
           <input type="text" id="r_phone" readonly class="w-full p-2 bg-white rounded border border-slate-300 text-sm text-slate-700"></div>
-          <div><label class="text-[10px] text-slate-500 font-bold uppercase">Office Remarks</label>
-          <input type="text" id="r_remarks" readonly class="w-full p-2 bg-white rounded border border-slate-300 text-sm text-slate-700"></div>
         </div>
         
         <div class="mt-4 p-3 border-2 border-blue-200 bg-blue-50 rounded-lg space-y-3">
@@ -139,22 +137,17 @@
         <button onclick="saveAdminSettings()" class="w-full py-2 bg-indigo-600 text-white font-semibold rounded-lg mt-2 shadow">Apply Security Lock</button>
       </div>
 
-      <!-- REDESIGNED GEOFENCE UI (MAP TOP, SECRETARIAT BOTTOM) -->
       <div id="tabGeofence" class="glass p-5 rounded-2xl shadow space-y-3 hidden flex flex-col h-[75vh]">
         <h3 class="font-bold text-indigo-900 border-b pb-2 flex-shrink-0">Interactive Geofence Map</h3>
         
-        <!-- Smart Search Location -->
         <div class="flex gap-2 flex-shrink-0">
           <input type="text" id="mapSearchInput" list="recentSearches" placeholder="Search Location Map (e.g. Rajahmundry)" class="w-full p-2 border border-blue-400 rounded text-sm bg-blue-50 font-semibold shadow-inner">
           <datalist id="recentSearches"></datalist>
           <button onclick="searchMapLocation(event)" class="bg-blue-600 text-white px-3 text-sm font-bold rounded shadow transition hover:bg-blue-700">Search</button>
         </div>
-        <p class="text-[10px] text-slate-500 leading-tight">Search or tap anywhere on the map to extract precise coordinates. History is saved automatically.</p>
 
-        <!-- Huge Interactive Map taking remaining height -->
-        <div id="interactiveMap" class="w-full flex-grow rounded-lg border-4 border-slate-300 shadow-inner z-0 relative min-h-[300px]"></div>
+        <div id="interactiveMap" class="w-full flex-grow rounded-lg border-4 border-slate-300 shadow-inner z-0 relative min-h-[300px] mt-2"></div>
         
-        <!-- Output Block -->
         <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm flex-shrink-0 space-y-2 mt-2">
           <div class="grid grid-cols-2 gap-2">
             <div><label class="text-[10px] font-bold text-slate-500 uppercase">Latitude</label><input type="number" step="any" id="geoLat" readonly class="w-full p-2 border rounded text-sm bg-white font-semibold"></div>
@@ -163,7 +156,6 @@
           <div><label class="text-[10px] font-bold text-slate-500 uppercase">Radius Boundary (Meters)</label><input type="number" id="geoRadius" value="50" class="w-full p-2 border rounded text-sm font-bold text-indigo-900 bg-white"></div>
         </div>
         
-        <!-- Save Actions -->
         <div class="flex flex-col gap-2 mt-2 flex-shrink-0">
           <div class="flex gap-2">
             <input type="text" id="geoSecName" placeholder="Secretariat Name (Exact Match)" class="w-full p-3 border-2 rounded-lg text-sm font-bold border-amber-400 focus:ring-2 focus:ring-amber-500 outline-none shadow-sm">
@@ -247,16 +239,15 @@
 
     let currentUser = null, modelsLoaded = false, livenessVerified = false, capturedPhotoBase64 = null;
     let currentCoords = { lat: 0, lng: 0 }, isGeofenceValid = false;
-    
     let adminPunchTarget = null, adminCapturedPhotoBase64 = null;
     let adminCurrentCoords = { lat: 0, lng: 0 }, isAdminGeofenceValid = false;
-
     let leafletMap = null, mapMarker = null;
 
-    // GLOBAL AI CACHE FOR INSTANT LOADING
+    // GLOBAL AI CACHE & SESSION TRACKING (FIXES THE CRASH/FREEZE BUG)
     let globalFaceMesh = null;
     let scanCameraInstance = null;
     let mainCameraInstance = null;
+    let currentAiSession = 0; 
 
     async function apiCall(payload) {
       try {
@@ -266,7 +257,6 @@
       } catch (err) { throw new Error(err.message || "Network connection failed."); }
     }
 
-    // PRE-WARM AI IN BACKGROUND
     async function initFaceAPI() {
       if (modelsLoaded) return;
       try {
@@ -278,7 +268,7 @@
         ]);
         globalFaceMesh = new FaceMesh({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
         globalFaceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
-        await globalFaceMesh.initialize(); // Cache completely
+        await globalFaceMesh.initialize(); 
         modelsLoaded = true;
       } catch (err) { console.error("AI Cache Error:", err); }
     }
@@ -302,12 +292,14 @@
     }
 
     function stopCameras() {
+      currentAiSession++; // Instantly invalidates any running background frames to prevent crashes!
       if (mainCameraInstance) { mainCameraInstance.stop(); mainCameraInstance = null; }
-      closeFaceScanner(); 
-      ['regWebcam', 'webcam', 'adminWebcam'].forEach(id => {
+      if (scanCameraInstance) { scanCameraInstance.stop(); scanCameraInstance = null; }
+      ['regWebcam', 'webcam', 'scanWebcam'].forEach(id => {
         const vid = document.getElementById(id);
         if (vid && vid.srcObject) { vid.srcObject.getTracks().forEach(t => t.stop()); vid.srcObject = null; }
       });
+      document.getElementById('faceScanModal').classList.add('hidden');
     }
 
     function switchTab(tabId) {
@@ -338,21 +330,32 @@
     }
 
     function closeFaceScanner() {
+       currentAiSession++; // Invalidates background processing
        document.getElementById('faceScanModal').classList.add('hidden');
        if (scanCameraInstance) { scanCameraInstance.stop(); scanCameraInstance = null; }
        const vid = document.getElementById('scanWebcam');
        if (vid && vid.srcObject) { vid.srcObject.getTracks().forEach(t=>t.stop()); vid.srcObject = null; }
     }
 
-    // INSTANT FACE SCANNER REUSING CACHE
+    // INSTANT CRASH-PROOF SCAN CAMERA
     async function startScanCamera() {
+       currentAiSession++;
+       const sessionID = currentAiSession;
        const video = document.getElementById('scanWebcam');
        const prompt = document.getElementById('scanPrompt');
+       
        try { video.srcObject = await navigator.mediaDevices.getUserMedia({video:true, audio:false}); } catch(e) { return prompt.innerText="Camera blocked"; }
+       
+       await new Promise(resolve => {
+         if (video.readyState >= 2) resolve();
+         else video.onloadedmetadata = () => resolve();
+       });
+       video.play();
 
        let eyeClosed = false, internalLivenessVerified = false;
 
        globalFaceMesh.onResults(async (results) => {
+           if (sessionID !== currentAiSession) return; // Prevent old session frames from running
            if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) { prompt.innerText = "No Face Detected"; return; }
            const lm = results.multiFaceLandmarks[0];
            const avgEAR = ((Math.hypot(lm[159].x-lm[145].x, lm[159].y-lm[145].y)/Math.hypot(lm[33].x-lm[133].x, lm[33].y-lm[133].y)) + (Math.hypot(lm[386].x-lm[374].x, lm[386].y-lm[374].y)/Math.hypot(lm[362].x-lm[263].x, lm[362].y-lm[263].y)))/2;
@@ -361,19 +364,30 @@
            else if (avgEAR > 0.22 && eyeClosed && !internalLivenessVerified) {
                internalLivenessVerified = true;
                prompt.innerText = "Blink Verified! Matching Database...";
-               const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-               if (detection) {
-                   const canvas = document.createElement('canvas'); canvas.width=480; canvas.height=480;
-                   const ctx = canvas.getContext('2d'); ctx.translate(480,0); ctx.scale(-1,1); ctx.drawImage(video,0,0,480,480);
-                   const photoB64 = canvas.toDataURL('image/jpeg', 0.85);
-                   closeFaceScanner();
-                   if (scanCallback) scanCallback(Array.from(detection.descriptor), photoB64);
-               } else {
-                   internalLivenessVerified = false; eyeClosed = false; prompt.innerText = "Please blink again.";
+               try {
+                   const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+                   if (sessionID !== currentAiSession) return; // Double check after async
+                   
+                   if (detection) {
+                       const canvas = document.createElement('canvas'); canvas.width=480; canvas.height=480;
+                       const ctx = canvas.getContext('2d'); ctx.translate(480,0); ctx.scale(-1,1); ctx.drawImage(video,0,0,480,480);
+                       const photoB64 = canvas.toDataURL('image/jpeg', 0.85);
+                       closeFaceScanner();
+                       if (scanCallback) scanCallback(Array.from(detection.descriptor), photoB64);
+                   } else {
+                       internalLivenessVerified = false; eyeClosed = false; prompt.innerText = "Please blink again.";
+                   }
+               } catch(err) {
+                   internalLivenessVerified = false; eyeClosed = false; prompt.innerText = "Processing error, please blink again.";
                }
            } else if (!internalLivenessVerified) prompt.innerText = "Please Blink";
        });
-       scanCameraInstance = new Camera(video, { onFrame: async () => { await globalFaceMesh.send({ image: video }); }, width: 480, height: 480 });
+       
+       scanCameraInstance = new Camera(video, { onFrame: async () => { 
+           if (sessionID === currentAiSession) {
+               try { await globalFaceMesh.send({ image: video }); } catch(e) {}
+           }
+       }, width: 480, height: 480 });
        scanCameraInstance.start();
     }
 
@@ -678,7 +692,7 @@
       try { const res = await apiCall(payload); alert(res.message); loadRequests(); } catch (e) {}
     }
 
-    // --- EMPLOYEE ATTENDANCE LOGIC & INSTANT AI ---
+    // --- CRASH PROOF MAIN AI PUNCH CAMERA ---
     async function loginEmployee() {
       try {
         const res = await apiCall({ action: "emp_login", cfmsId: document.getElementById('empCfms').value, password: document.getElementById('empPass').value });
@@ -716,14 +730,24 @@
     }
 
     async function startAI() {
+      currentAiSession++;
+      const sessionID = currentAiSession;
+      
       const videoElement = document.getElementById('webcam'), prompt = document.getElementById('aiPrompt');
       stopCameras(); 
       try { videoElement.srcObject = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); } catch (e) { return prompt.innerText = "Camera Access Blocked"; }
 
+      await new Promise(resolve => {
+         if (videoElement.readyState >= 2) resolve();
+         else videoElement.onloadedmetadata = () => resolve();
+      });
+      videoElement.play();
+
       let eyeClosed = false; livenessVerified = false;
       
-      // REUSING GLOBAL CACHE FOR INSTANT RENDER
       globalFaceMesh.onResults(async (results) => {
+        if (sessionID !== currentAiSession) return; // Prevent frozen background frames from crashing UI
+        
         if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) return prompt.innerText = "No Face Detected";
         const lm = results.multiFaceLandmarks[0];
         const avgEAR = ((Math.hypot(lm[159].x-lm[145].x, lm[159].y-lm[145].y)/Math.hypot(lm[33].x-lm[133].x, lm[33].y-lm[133].y)) + (Math.hypot(lm[386].x-lm[374].x, lm[386].y-lm[374].y)/Math.hypot(lm[362].x-lm[263].x, lm[362].y-lm[263].y)))/2;
@@ -731,37 +755,46 @@
         if (avgEAR < 0.16) eyeClosed = true;
         else if (avgEAR > 0.22 && eyeClosed && !livenessVerified) {
           livenessVerified = true; prompt.innerText = "Blink Verified! Matching Identity...";
-          const detection = await faceapi.detectSingleFace(videoElement).withFaceLandmarks().withFaceDescriptor();
           
-          if (detection && faceapi.euclideanDistance(detection.descriptor, new Float32Array(Object.values(currentUser.faceDescriptor))) < 0.55) {
-             prompt.innerText = "✅ Identity Verified! Select IN/OUT"; prompt.className = "absolute bottom-3 bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-full";
-             const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 480; const ctx = canvas.getContext('2d'); ctx.translate(480, 0); ctx.scale(-1, 1); ctx.drawImage(videoElement, 0, 0, 480, 480);
-             capturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
-             
-             if (isGeofenceValid) { 
-               const btnIn = document.getElementById('btnIn'); const btnOut = document.getElementById('btnOut');
-               
-               if (currentUser.punchedIn) { btnIn.disabled = true; btnIn.innerText = "IN Captured"; btnIn.classList.remove('bg-emerald-600'); btnIn.classList.add('bg-slate-500'); } else { btnIn.disabled = false; }
-               if (currentUser.punchedOut) { btnOut.disabled = true; btnOut.innerText = "OUT Captured"; btnOut.classList.remove('bg-red-600'); btnOut.classList.add('bg-slate-500'); } else { btnOut.disabled = false; }
-               
-               if (currentUser.punchedIn && currentUser.punchedOut) { prompt.innerText = "Attendance Completed for Today!"; prompt.className = "absolute bottom-3 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full"; }
-             }
-          } else { 
-             prompt.innerText = "❌ FRAUD DETECTED!"; prompt.className = "absolute bottom-3 bg-red-600 text-white text-xs px-3 py-1.5 rounded-full"; 
-             document.getElementById('btnIn').disabled = true; document.getElementById('btnOut').disabled = true;
-             
-             const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 480; 
-             const ctx = canvas.getContext('2d'); ctx.translate(480, 0); ctx.scale(-1, 1); ctx.drawImage(videoElement, 0, 0, 480, 480);
-             const fraudPhoto = canvas.toDataURL('image/jpeg', 0.85);
-             if (mainCameraInstance) { mainCameraInstance.stop(); }
-             
-             apiCall({ action: "log_fraud", cfmsId: currentUser.cfmsId, name: currentUser.name, secretariat: currentUser.secretariat, lat: currentCoords.lat, lng: currentCoords.lng, photoBase64: fraudPhoto });
-             alert("You are not registered user with CFMS ID. You are trying to give fake attendance and your face is captured for disciplinary action.");
-             logout(); 
+          try {
+              const detection = await faceapi.detectSingleFace(videoElement).withFaceLandmarks().withFaceDescriptor();
+              if (sessionID !== currentAiSession) return;
+              
+              if (detection && faceapi.euclideanDistance(detection.descriptor, new Float32Array(Object.values(currentUser.faceDescriptor))) < 0.55) {
+                 prompt.innerText = "✅ Identity Verified! Select IN/OUT"; prompt.className = "absolute bottom-3 bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-full";
+                 const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 480; const ctx = canvas.getContext('2d'); ctx.translate(480, 0); ctx.scale(-1, 1); ctx.drawImage(videoElement, 0, 0, 480, 480);
+                 capturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
+                 
+                 if (isGeofenceValid) { 
+                   const btnIn = document.getElementById('btnIn'); const btnOut = document.getElementById('btnOut');
+                   if (currentUser.punchedIn) { btnIn.disabled = true; btnIn.innerText = "IN Captured"; btnIn.classList.remove('bg-emerald-600'); btnIn.classList.add('bg-slate-500'); } else { btnIn.disabled = false; }
+                   if (currentUser.punchedOut) { btnOut.disabled = true; btnOut.innerText = "OUT Captured"; btnOut.classList.remove('bg-red-600'); btnOut.classList.add('bg-slate-500'); } else { btnOut.disabled = false; }
+                   if (currentUser.punchedIn && currentUser.punchedOut) { prompt.innerText = "Attendance Completed for Today!"; prompt.className = "absolute bottom-3 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full"; }
+                 }
+              } else { 
+                 prompt.innerText = "❌ FRAUD DETECTED!"; prompt.className = "absolute bottom-3 bg-red-600 text-white text-xs px-3 py-1.5 rounded-full"; 
+                 document.getElementById('btnIn').disabled = true; document.getElementById('btnOut').disabled = true;
+                 
+                 const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 480; 
+                 const ctx = canvas.getContext('2d'); ctx.translate(480, 0); ctx.scale(-1, 1); ctx.drawImage(videoElement, 0, 0, 480, 480);
+                 const fraudPhoto = canvas.toDataURL('image/jpeg', 0.85);
+                 if (mainCameraInstance) { mainCameraInstance.stop(); }
+                 
+                 apiCall({ action: "log_fraud", cfmsId: currentUser.cfmsId, name: currentUser.name, secretariat: currentUser.secretariat, lat: currentCoords.lat, lng: currentCoords.lng, photoBase64: fraudPhoto });
+                 alert("You are not registered user with CFMS ID. You are trying to give fake attendance and your face is captured for disciplinary action.");
+                 logout(); 
+              }
+          } catch(err) {
+              livenessVerified = false; eyeClosed = false; prompt.innerText = "Processing error, please blink again.";
           }
         } else if (!livenessVerified) prompt.innerText = "Please Blink to Verify Liveness";
       });
-      mainCameraInstance = new Camera(videoElement, { onFrame: async () => { await globalFaceMesh.send({ image: videoElement }); }, width: 480, height: 480 });
+      
+      mainCameraInstance = new Camera(videoElement, { onFrame: async () => { 
+          if (sessionID === currentAiSession) {
+              try { await globalFaceMesh.send({ image: videoElement }); } catch(e) {}
+          }
+      }, width: 480, height: 480 });
       mainCameraInstance.start();
     }
 
