@@ -7,14 +7,14 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 
   <style>.glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }</style>
 </head>
-<body class="bg-slate-900 text-slate-800 min-h-screen flex flex-col justify-between" onload="initFaceAPI()">
+<body class="bg-slate-900 text-slate-800 min-h-screen flex flex-col justify-between" onload="ensureModelsLoaded()">
 
   <header class="bg-indigo-700 text-white p-4 shadow-md text-center font-bold text-lg flex justify-between items-center">
     <span>AI Attendance Hub</span>
@@ -237,14 +237,12 @@
     // ⚠️ UPDATE THIS LINK ⚠️
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwBbSayL15AA26Qw9KdiR8kWi4GfkE5nziyM-lLm2tlPpTQpSLSgZnSkVhE-XMirTNI/exec";
 
-    let currentUser = null, modelsLoaded = false, livenessVerified = false, capturedPhotoBase64 = null;
+    let currentUser = null, modelsLoaded = false, modelsLoadingPromise = null, livenessVerified = false, capturedPhotoBase64 = null;
     let currentCoords = { lat: 0, lng: 0 }, isGeofenceValid = false;
     let adminPunchTarget = null, adminCapturedPhotoBase64 = null;
     let adminCurrentCoords = { lat: 0, lng: 0 }, isAdminGeofenceValid = false;
     let leafletMap = null, mapMarker = null;
 
-    // GLOBAL AI CACHE & SESSION TRACKING (FIXES THE CRASH/FREEZE BUG)
-    let globalFaceMesh = null;
     let scanCameraInstance = null;
     let mainCameraInstance = null;
     let currentAiSession = 0; 
@@ -257,20 +255,25 @@
       } catch (err) { throw new Error(err.message || "Network connection failed."); }
     }
 
-    async function initFaceAPI() {
+    // ROBUST ASYNC MODEL LOADER (ELIMINATES AI INITIALIZATION FAILURES)
+    async function ensureModelsLoaded() {
       if (modelsLoaded) return;
-      try {
+      if (modelsLoadingPromise) return modelsLoadingPromise;
+
+      modelsLoadingPromise = (async () => {
+        while (typeof faceapi === 'undefined') {
+          await new Promise(r => setTimeout(r, 80));
+        }
         const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
         await Promise.all([
           faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
           faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
           faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ]);
-        globalFaceMesh = new FaceMesh({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
-        globalFaceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
-        await globalFaceMesh.initialize(); 
         modelsLoaded = true;
-      } catch (err) { console.error("AI Cache Error:", err); }
+      })();
+
+      return modelsLoadingPromise;
     }
 
     function hideAll() { ['roleView','registrationView','adminLoginView','adminDashboardView','empLoginView','empCaptureView'].forEach(id => document.getElementById(id).classList.add('hidden')); }
@@ -292,7 +295,7 @@
     }
 
     function stopCameras() {
-      currentAiSession++; // Instantly invalidates any running background frames to prevent crashes!
+      currentAiSession++;
       if (mainCameraInstance) { mainCameraInstance.stop(); mainCameraInstance = null; }
       if (scanCameraInstance) { scanCameraInstance.stop(); scanCameraInstance = null; }
       ['regWebcam', 'webcam', 'scanWebcam'].forEach(id => {
@@ -330,20 +333,22 @@
     }
 
     function closeFaceScanner() {
-       currentAiSession++; // Invalidates background processing
+       currentAiSession++; 
        document.getElementById('faceScanModal').classList.add('hidden');
        if (scanCameraInstance) { scanCameraInstance.stop(); scanCameraInstance = null; }
        const vid = document.getElementById('scanWebcam');
        if (vid && vid.srcObject) { vid.srcObject.getTracks().forEach(t=>t.stop()); vid.srcObject = null; }
     }
 
-    // INSTANT CRASH-PROOF SCAN CAMERA
     async function startScanCamera() {
        currentAiSession++;
        const sessionID = currentAiSession;
        const video = document.getElementById('scanWebcam');
        const prompt = document.getElementById('scanPrompt');
        
+       prompt.innerText = "Loading AI Models...";
+       try { await ensureModelsLoaded(); } catch(e) { prompt.innerText = "AI Failed to load"; return; }
+
        try { video.srcObject = await navigator.mediaDevices.getUserMedia({video:true, audio:false}); } catch(e) { return prompt.innerText="Camera blocked"; }
        
        await new Promise(resolve => {
@@ -353,9 +358,11 @@
        video.play();
 
        let eyeClosed = false, internalLivenessVerified = false;
+       const localFaceMesh = new FaceMesh({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
+       localFaceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
 
-       globalFaceMesh.onResults(async (results) => {
-           if (sessionID !== currentAiSession) return; // Prevent old session frames from running
+       localFaceMesh.onResults(async (results) => {
+           if (sessionID !== currentAiSession) return;
            if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) { prompt.innerText = "No Face Detected"; return; }
            const lm = results.multiFaceLandmarks[0];
            const avgEAR = ((Math.hypot(lm[159].x-lm[145].x, lm[159].y-lm[145].y)/Math.hypot(lm[33].x-lm[133].x, lm[33].y-lm[133].y)) + (Math.hypot(lm[386].x-lm[374].x, lm[386].y-lm[374].y)/Math.hypot(lm[362].x-lm[263].x, lm[362].y-lm[263].y)))/2;
@@ -366,7 +373,7 @@
                prompt.innerText = "Blink Verified! Matching Database...";
                try {
                    const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-                   if (sessionID !== currentAiSession) return; // Double check after async
+                   if (sessionID !== currentAiSession) return;
                    
                    if (detection) {
                        const canvas = document.createElement('canvas'); canvas.width=480; canvas.height=480;
@@ -385,7 +392,7 @@
        
        scanCameraInstance = new Camera(video, { onFrame: async () => { 
            if (sessionID === currentAiSession) {
-               try { await globalFaceMesh.send({ image: video }); } catch(e) {}
+               try { await localFaceMesh.send({ image: video }); } catch(e) {}
            }
        }, width: 480, height: 480 });
        scanCameraInstance.start();
@@ -426,7 +433,6 @@
       } catch (err) { alert("Error identifying face: " + err.message); }
     }
 
-    // --- LEAFLET MAP & SEARCH HISTORY LOGIC ---
     function updateSearchDatalist() {
       const dl = document.getElementById('recentSearches');
       if(!dl) return;
@@ -531,6 +537,7 @@
       
       btn.innerText = "Analyzing Face Rules..."; btn.disabled = true;
       try {
+        await ensureModelsLoaded();
         const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
         if (detections.length === 0) throw new Error("❌ Human face not detected!");
         if (detections.length > 1) throw new Error("❌ Multiple faces detected!");
@@ -555,7 +562,7 @@
       try {
         const res = await apiCall({ action: "admin_login", username: u, password: p });
         if (res.success) { 
-          hideAll(); document.getElementById('adminDashboardView').classList.remove('hidden'); initFaceAPI();
+          hideAll(); document.getElementById('adminDashboardView').classList.remove('hidden');
           if (res.role === "MAIN") document.getElementById('btn_tabSubAdmin').classList.remove('hidden');
           switchTab('tabSettings'); 
           loadAdminSettings(); loadRequests();
@@ -692,7 +699,7 @@
       try { const res = await apiCall(payload); alert(res.message); loadRequests(); } catch (e) {}
     }
 
-    // --- CRASH PROOF MAIN AI PUNCH CAMERA ---
+    // --- RELIABLE CRASH-PROOF AI INITIALIZER ---
     async function loginEmployee() {
       try {
         const res = await apiCall({ action: "emp_login", cfmsId: document.getElementById('empCfms').value, password: document.getElementById('empPass').value });
@@ -719,7 +726,8 @@
             if (dist <= radius) {
               isGeofenceValid = true; geoStatus.innerText = `Verified: Inside ${currentUser.secretariat}`; geoStatus.className = "text-xs font-semibold text-emerald-600"; startAI();
             } else {
-              isGeofenceValid = false; geoStatus.innerText = `Outside Geofence: ${Math.round(dist)}m away`; geoStatus.className = "text-xs font-semibold text-red-600"; 
+              isGeofenceValid = false; 
+              geoStatus.innerText = `Outside Geofence: ${Math.round(dist)}m away`; geoStatus.className = "text-xs font-semibold text-red-600"; 
               document.getElementById('aiPrompt').innerText = "❌ Geofence Failed. AI Locked."; alert("Outside designated geofence! Cannot mark attendance.");
             }
           } else {
@@ -735,7 +743,23 @@
       
       const videoElement = document.getElementById('webcam'), prompt = document.getElementById('aiPrompt');
       stopCameras(); 
-      try { videoElement.srcObject = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); } catch (e) { return prompt.innerText = "Camera Access Blocked"; }
+      
+      prompt.innerText = "Loading AI Vision Models...";
+      prompt.className = "absolute bottom-3 bg-black/75 text-white text-xs px-3 py-1.5 rounded-full font-semibold border border-white/20";
+
+      try {
+        await ensureModelsLoaded();
+      } catch (err) {
+        prompt.innerText = "AI Models Failed to Load. Check Connection.";
+        return;
+      }
+
+      try { 
+        videoElement.srcObject = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); 
+      } catch (e) { 
+        prompt.innerText = "Camera Access Blocked"; 
+        return;
+      }
 
       await new Promise(resolve => {
          if (videoElement.readyState >= 2) resolve();
@@ -744,11 +768,17 @@
       videoElement.play();
 
       let eyeClosed = false; livenessVerified = false;
+      const localFaceMesh = new FaceMesh({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
+      localFaceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
       
-      globalFaceMesh.onResults(async (results) => {
-        if (sessionID !== currentAiSession) return; // Prevent frozen background frames from crashing UI
+      localFaceMesh.onResults(async (results) => {
+        if (sessionID !== currentAiSession) return;
         
-        if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) return prompt.innerText = "No Face Detected";
+        if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+          prompt.innerText = "No Face Detected";
+          return;
+        }
+        
         const lm = results.multiFaceLandmarks[0];
         const avgEAR = ((Math.hypot(lm[159].x-lm[145].x, lm[159].y-lm[145].y)/Math.hypot(lm[33].x-lm[133].x, lm[33].y-lm[133].y)) + (Math.hypot(lm[386].x-lm[374].x, lm[386].y-lm[374].y)/Math.hypot(lm[362].x-lm[263].x, lm[362].y-lm[263].y)))/2;
         
@@ -767,8 +797,10 @@
                  
                  if (isGeofenceValid) { 
                    const btnIn = document.getElementById('btnIn'); const btnOut = document.getElementById('btnOut');
+                   
                    if (currentUser.punchedIn) { btnIn.disabled = true; btnIn.innerText = "IN Captured"; btnIn.classList.remove('bg-emerald-600'); btnIn.classList.add('bg-slate-500'); } else { btnIn.disabled = false; }
                    if (currentUser.punchedOut) { btnOut.disabled = true; btnOut.innerText = "OUT Captured"; btnOut.classList.remove('bg-red-600'); btnOut.classList.add('bg-slate-500'); } else { btnOut.disabled = false; }
+                   
                    if (currentUser.punchedIn && currentUser.punchedOut) { prompt.innerText = "Attendance Completed for Today!"; prompt.className = "absolute bottom-3 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full"; }
                  }
               } else { 
@@ -792,7 +824,7 @@
       
       mainCameraInstance = new Camera(videoElement, { onFrame: async () => { 
           if (sessionID === currentAiSession) {
-              try { await globalFaceMesh.send({ image: videoElement }); } catch(e) {}
+              try { await localFaceMesh.send({ image: videoElement }); } catch(e) {}
           }
       }, width: 480, height: 480 });
       mainCameraInstance.start();
