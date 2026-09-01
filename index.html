@@ -237,7 +237,7 @@
     // ⚠️ UPDATE THIS LINK ⚠️
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwBbSayL15AA26Qw9KdiR8kWi4GfkE5nziyM-lLm2tlPpTQpSLSgZnSkVhE-XMirTNI/exec";
 
-    let currentUser = null, modelsLoaded = false, livenessVerified = false, capturedPhotoBase64 = null;
+    let currentUser = null, modelsLoaded = false, modelsLoadingPromise = null, livenessVerified = false, capturedPhotoBase64 = null;
     let currentCoords = { lat: 0, lng: 0 }, isGeofenceValid = false;
     let adminPunchTarget = null, adminCapturedPhotoBase64 = null;
     let adminCurrentCoords = { lat: 0, lng: 0 }, isAdminGeofenceValid = false;
@@ -256,13 +256,11 @@
       } catch (err) { throw new Error(err.message || "Network connection failed."); }
     }
 
-    // STRICT ROBUST ASYNC MODEL LOADER
-    let aiInitPromise = null;
-    async function initFaceAPI() {
+    async function ensureModelsLoaded() {
       if (modelsLoaded) return;
-      if (aiInitPromise) return aiInitPromise;
+      if (modelsLoadingPromise) return modelsLoadingPromise;
 
-      aiInitPromise = (async () => {
+      modelsLoadingPromise = (async () => {
         while (typeof faceapi === 'undefined' || typeof FaceMesh === 'undefined') {
           await new Promise(r => setTimeout(r, 80));
         }
@@ -277,7 +275,8 @@
         await globalFaceMesh.initialize(); 
         modelsLoaded = true;
       })();
-      return aiInitPromise;
+
+      return modelsLoadingPromise;
     }
 
     function hideAll() { ['roleView','registrationView','adminLoginView','adminDashboardView','empLoginView','empCaptureView'].forEach(id => document.getElementById(id).classList.add('hidden')); }
@@ -298,6 +297,7 @@
       stopCameras(); showHome(); 
     }
 
+    // FIXED: Properly increments AI session to prevent race conditions during camera swaps
     function stopCameras() {
       currentAiSession++; 
       if (mainCameraInstance) { mainCameraInstance.stop(); mainCameraInstance = null; }
@@ -351,7 +351,7 @@
        const prompt = document.getElementById('scanPrompt');
        
        prompt.innerText = "Loading AI Models...";
-       try { await initFaceAPI(); } catch(e) { prompt.innerText = "AI Failed to load"; return; }
+       try { await ensureModelsLoaded(); } catch(e) { prompt.innerText = "AI Failed to load"; return; }
 
        try { video.srcObject = await navigator.mediaDevices.getUserMedia({video:true, audio:false}); } catch(e) { return prompt.innerText="Camera blocked"; }
        
@@ -363,7 +363,6 @@
 
        let eyeClosed = false, internalLivenessVerified = false;
 
-       // GLOBALLY CACHED AI INSTANCE RE-ROUTED TO MODAL
        globalFaceMesh.onResults(async (results) => {
            if (sessionID !== currentAiSession) return;
            if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) { prompt.innerText = "No Face Detected"; return; }
@@ -540,7 +539,7 @@
       
       btn.innerText = "Analyzing Face Rules..."; btn.disabled = true;
       try {
-        await initFaceAPI();
+        await ensureModelsLoaded();
         const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
         if (detections.length === 0) throw new Error("❌ Human face not detected!");
         if (detections.length > 1) throw new Error("❌ Multiple faces detected!");
@@ -729,8 +728,10 @@
             if (dist <= radius) {
               isGeofenceValid = true; geoStatus.innerText = `Verified: Inside ${currentUser.secretariat}`; geoStatus.className = "text-xs font-semibold text-emerald-600"; startAI();
             } else {
-              isGeofenceValid = false; geoStatus.innerText = `Outside Geofence: ${Math.round(dist)}m away`; geoStatus.className = "text-xs font-semibold text-red-600"; 
-              document.getElementById('aiPrompt').innerText = "❌ Geofence Failed. AI Locked."; alert("Outside designated geofence! Cannot mark attendance.");
+              isGeofenceValid = false; 
+              geoStatus.innerText = `Outside Geofence: ${Math.round(dist)}m away`; geoStatus.className = "text-xs font-semibold text-red-600"; 
+              document.getElementById('aiPrompt').innerText = "❌ Geofence Failed. AI Locked.";
+              alert("Outside designated geofence! Cannot mark attendance.");
             }
           } else {
             isGeofenceValid = true; geoStatus.innerText = "No Geofence Set. Starting AI..."; startAI();
@@ -739,26 +740,29 @@
       }, err => { geoStatus.innerText = "Error reading GPS: " + err.message; }, { enableHighAccuracy: true });
     }
 
+    // FIXED: stopCameras called BEFORE generating new sessionID so AI doesn't hang!
     async function startAI() {
+      stopCameras(); 
       currentAiSession++;
       const sessionID = currentAiSession;
       
       const videoElement = document.getElementById('webcam'), prompt = document.getElementById('aiPrompt');
-      stopCameras(); 
       
       prompt.innerText = "Loading AI Vision Models...";
       prompt.className = "absolute bottom-3 bg-black/75 text-white text-xs px-3 py-1.5 rounded-full font-semibold border border-white/20";
 
       try {
-        await initFaceAPI();
+        await ensureModelsLoaded();
       } catch (err) {
-        prompt.innerText = "AI Models Failed to Load. Check Connection."; return;
+        prompt.innerText = "AI Models Failed to Load. Check Connection.";
+        return;
       }
 
       try { 
         videoElement.srcObject = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); 
       } catch (e) { 
-        prompt.innerText = "Camera Access Blocked"; return;
+        prompt.innerText = "Camera Access Blocked"; 
+        return;
       }
 
       await new Promise(resolve => {
@@ -768,12 +772,17 @@
       videoElement.play();
 
       let eyeClosed = false; livenessVerified = false;
+      const localFaceMesh = new FaceMesh({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
+      localFaceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
       
-      // REUSING GLOBAL CACHE FOR INSTANT RENDER
-      globalFaceMesh.onResults(async (results) => {
-        if (sessionID !== currentAiSession) return; 
+      localFaceMesh.onResults(async (results) => {
+        if (sessionID !== currentAiSession) return;
         
-        if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) return prompt.innerText = "No Face Detected";
+        if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+          prompt.innerText = "No Face Detected";
+          return;
+        }
+        
         const lm = results.multiFaceLandmarks[0];
         const avgEAR = ((Math.hypot(lm[159].x-lm[145].x, lm[159].y-lm[145].y)/Math.hypot(lm[33].x-lm[133].x, lm[33].y-lm[133].y)) + (Math.hypot(lm[386].x-lm[374].x, lm[386].y-lm[374].y)/Math.hypot(lm[362].x-lm[263].x, lm[362].y-lm[263].y)))/2;
         
@@ -819,7 +828,7 @@
       
       mainCameraInstance = new Camera(videoElement, { onFrame: async () => { 
           if (sessionID === currentAiSession) {
-              try { await globalFaceMesh.send({ image: videoElement }); } catch(e) {}
+              try { await localFaceMesh.send({ image: videoElement }); } catch(e) {}
           }
       }, width: 480, height: 480 });
       mainCameraInstance.start();
